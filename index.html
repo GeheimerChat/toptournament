@@ -488,6 +488,7 @@
         <div class="error-msg" id="login-error">Please fill in your email, password and confirm the captcha.</div>
 
         <button class="primary-btn" id="login-btn" onclick="handleLogin()">Log in with Email</button>
+        <div class="toggle-line" style="margin-top:12px;"><button onclick="forgotPassword()">Forgot your password?</button></div>
         <div class="toggle-line">New here? <button onclick="showSignup()">Create an account</button></div>
       </div>
 
@@ -519,6 +520,9 @@
   <div class="topbar">
     <div class="brandmark"><div class="dice"><svg viewBox="0 0 24 24" fill="none"><circle cx="6" cy="6" r="1.8" fill="#211500"/><circle cx="18" cy="6" r="1.8" fill="#211500"/><circle cx="12" cy="12" r="1.8" fill="#211500"/><circle cx="6" cy="18" r="1.8" fill="#211500"/><circle cx="18" cy="18" r="1.8" fill="#211500"/></svg></div>Top Tournament</div>
     <div style="display:flex; align-items:center; gap:8px;">
+      <button onclick="goto('page-notifications')" style="position:relative; background:var(--panel-2); border:1px solid var(--line); border-radius:20px; padding:6px 10px; color:var(--text); cursor:pointer; font-size:14px;">
+        🔔<span id="notif-dot" class="hidden" style="position:absolute; top:3px; right:5px; width:8px; height:8px; border-radius:50%; background:var(--red);"></span>
+      </button>
       <div class="uid-chip" id="topbar-balance" style="color:var(--gold-2); border-color:rgba(242,177,52,.3);">Rs 0</div>
       <div class="uid-chip" id="topbar-uid">ID 2063453</div>
     </div>
@@ -631,6 +635,20 @@
       </div>
     </div>
 
+    <!-- NOTIFICATIONS -->
+    <div class="page" id="page-notifications">
+      <h2>Notifications</h2>
+      <p class="subhead">Announcements and updates from the Top Tournament team.</p>
+      <div id="notifications-wrap" class="history-list"></div>
+    </div>
+
+    <!-- LEADERBOARD -->
+    <div class="page" id="page-leaderboard">
+      <h2>Leaderboard</h2>
+      <p class="subhead">Top players by tournament wins.</p>
+      <div id="leaderboard-wrap" class="history-list"></div>
+    </div>
+
     <!-- TOURNAMENTS -->
     <div class="page" id="page-tournaments">
       <h2>Tournaments</h2>
@@ -655,7 +673,27 @@
           <div class="kyc-pill no" id="kyc-pill">● KYC not verified</div>
         </div>
       </div>
+      <div class="stat-grid-player" style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:24px;">
+        <div class="card" style="text-align:center; padding:14px;">
+          <div style="font-family:var(--font-display); font-size:24px; font-weight:800; color:var(--gold-2);" id="stat-wins">0</div>
+          <div style="font-size:11px; color:var(--text-dim); font-weight:700; text-transform:uppercase;">Wins</div>
+        </div>
+        <div class="card" style="text-align:center; padding:14px;">
+          <div style="font-family:var(--font-display); font-size:24px; font-weight:800; color:var(--teal);" id="stat-tournaments">0</div>
+          <div style="font-size:11px; color:var(--text-dim); font-weight:700; text-transform:uppercase;">Tournaments</div>
+        </div>
+        <div class="card" style="text-align:center; padding:14px;">
+          <div style="font-family:var(--font-display); font-size:24px; font-weight:800;" id="stat-balance">0</div>
+          <div style="font-size:11px; color:var(--text-dim); font-weight:700; text-transform:uppercase;">Balance</div>
+        </div>
+      </div>
+
       <div class="menu-list">
+        <button class="menu-item" onclick="goto('page-leaderboard')">
+          <div class="mi-icon">🏅</div>
+          <div class="mi-body"><div class="mi-title">Leaderboard</div><div class="mi-sub">See the top players</div></div>
+          <div class="chev">›</div>
+        </button>
         <button class="menu-item" onclick="goto('page-settings')">
           <div class="mi-icon">⚙️</div>
           <div class="mi-body"><div class="mi-title">Settings</div><div class="mi-sub">Theme & KYC verification</div></div>
@@ -684,6 +722,13 @@
       <div class="back-row" onclick="goto('page-profile')">← Back to profile</div>
       <h2>Settings</h2>
       <p class="subhead">Personalize your app and verify your identity.</p>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="mi-title" style="margin-bottom:2px;">Display name</div>
+        <div class="mi-sub" style="margin-bottom:12px;">This is what other players see on the leaderboard.</div>
+        <div class="field"><input id="edit-name-input" placeholder="Your display name"></div>
+        <button class="primary-btn" onclick="saveDisplayName()">Save name</button>
+      </div>
 
       <div class="card" style="margin-bottom:16px;">
         <div class="mi-title" style="margin-bottom:2px;">Theme</div>
@@ -898,6 +943,7 @@ async function loginFlow(){
   startHeartbeat();
   subscribeToProfile();
   checkTournamentBadge();
+  checkNotifDot();
   goto('page-home');
 }
 
@@ -985,7 +1031,7 @@ function goto(pageId){
   document.getElementById(pageId).classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b=>{
     b.classList.toggle('active', b.dataset.page===pageId ||
-      (['page-settings','page-deposit','page-withdraw','page-support'].includes(pageId) && b.dataset.page==='page-profile'));
+      (['page-settings','page-deposit','page-withdraw','page-support','page-leaderboard'].includes(pageId) && b.dataset.page==='page-profile'));
   });
   if(pageId==='page-withdraw'){
     const verified = currentProfile && currentProfile.kyc_verified;
@@ -997,6 +1043,12 @@ function goto(pageId){
   }
   if(pageId==='page-tournaments') renderTournaments();
   if(pageId==='page-support') renderSupport();
+  if(pageId==='page-notifications') renderNotifications();
+  if(pageId==='page-leaderboard') renderLeaderboard();
+  if(pageId==='page-profile') renderPlayerStats();
+  if(pageId==='page-settings' && currentProfile){
+    document.getElementById('edit-name-input').value = currentProfile.name || '';
+  }
   window.scrollTo({top:0, behavior:'smooth'});
 }
 function goHome(){ goto('page-home'); }
@@ -1490,6 +1542,96 @@ async function rollSlDice(){
   renderSlRoom();
   addHistoryEvent('🐍', 'Rolled a '+val+' in Snake & Ladder (room '+currentSlRoom.code+')', null);
   if(winner===mySeat) addHistoryEvent('🏆', 'Won a Snake & Ladder match', null);
+}
+
+/* ---------------- notifications ---------------- */
+async function checkNotifDot(){
+  if(!currentProfile) return;
+  const [{data:anns},{data:reads}] = await Promise.all([
+    sb.from('announcements').select('id'),
+    sb.from('announcement_reads').select('announcement_id').eq('user_id', currentProfile.id)
+  ]);
+  const readIds = new Set((reads||[]).map(r=>r.announcement_id));
+  const unread = (anns||[]).filter(a=>!readIds.has(a.id)).length;
+  document.getElementById('notif-dot').classList.toggle('hidden', unread===0);
+}
+
+async function renderNotifications(){
+  const wrap = document.getElementById('notifications-wrap');
+  const { data: anns } = await sb.from('announcements').select('*').order('created_at',{ascending:false});
+  if(!anns || anns.length===0){
+    wrap.innerHTML = '<div class="card empty-state"><div class="emoji">🔔</div><div class="msg">No announcements yet.</div></div>';
+    return;
+  }
+  const kindIcon = { info:'ℹ️', tournament:'🏆', payout:'💰', warning:'⚠️' };
+  wrap.innerHTML = anns.map(a=>`
+    <div class="history-item">
+      <div class="hi-icon" style="background:var(--panel-2)">${kindIcon[a.kind]||'ℹ️'}</div>
+      <div class="hi-body">
+        <div class="hi-title">${a.title}</div>
+        <div class="hi-time">${a.body||''}</div>
+        <div class="hi-time" style="opacity:.7; margin-top:2px;">${new Date(a.created_at).toLocaleString()}</div>
+      </div>
+    </div>`).join('');
+
+  // mark everything read
+  const { data: reads } = await sb.from('announcement_reads').select('announcement_id').eq('user_id', currentProfile.id);
+  const readIds = new Set((reads||[]).map(r=>r.announcement_id));
+  const toMark = anns.filter(a=>!readIds.has(a.id)).map(a=>({ user_id: currentProfile.id, announcement_id: a.id }));
+  if(toMark.length) await sb.from('announcement_reads').insert(toMark);
+  document.getElementById('notif-dot').classList.add('hidden');
+}
+
+/* ---------------- leaderboard ---------------- */
+async function renderLeaderboard(){
+  const wrap = document.getElementById('leaderboard-wrap');
+  const { data, error } = await sb.from('leaderboard').select('*').order('wins',{ascending:false}).limit(50);
+  if(error || !data || data.length===0){
+    wrap.innerHTML = '<div class="card empty-state"><div class="emoji">🏅</div><div class="msg">No ranked players yet — win a tournament to appear here.</div></div>';
+    return;
+  }
+  const medal = i => i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`;
+  wrap.innerHTML = data.map((p,i)=>`
+    <div class="history-item" ${p.id===currentProfile.id?'style="border-color:var(--gold);"':''}>
+      <div class="hi-icon" style="background:var(--panel-2); font-size:15px;">${medal(i)}</div>
+      <div class="hi-body">
+        <div class="hi-title">${p.name||'Player'} ${p.id===currentProfile.id?'<span style="color:var(--gold-2); font-size:11px;">(you)</span>':''}</div>
+        <div class="hi-time">ID ${p.player_id} · ${p.tournaments_played} tournament${p.tournaments_played===1?'':'s'}</div>
+      </div>
+      <div class="hi-amount amt-pos">${p.wins} win${p.wins===1?'':'s'}</div>
+    </div>`).join('');
+}
+
+/* ---------------- player stats ---------------- */
+async function renderPlayerStats(){
+  if(!currentProfile) return;
+  document.getElementById('stat-balance').textContent = Number(currentProfile.balance||0).toLocaleString();
+  const { data } = await sb.from('leaderboard').select('*').eq('id', currentProfile.id).maybeSingle();
+  document.getElementById('stat-wins').textContent = data ? data.wins : 0;
+  document.getElementById('stat-tournaments').textContent = data ? data.tournaments_played : 0;
+}
+
+/* ---------------- display name ---------------- */
+async function saveDisplayName(){
+  const name = document.getElementById('edit-name-input').value.trim();
+  if(!name){ alert('Enter a display name.'); return; }
+  const { data, error } = await sb.from('profiles').update({ name }).eq('id', currentProfile.id).select().single();
+  if(error){ alert(error.message); return; }
+  currentProfile = data;
+  loadUserIntoApp();
+  alert('Display name updated.');
+}
+
+/* ---------------- forgot password ---------------- */
+async function forgotPassword(){
+  const email = document.getElementById('login-email').value.trim();
+  const err = document.getElementById('login-error');
+  if(!email){ err.textContent='Enter your email above first, then tap "Forgot your password?".'; err.style.display='block'; return; }
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.href });
+  if(error){ err.textContent = error.message; err.style.display='block'; return; }
+  err.style.color = 'var(--teal)';
+  err.textContent = 'Password reset link sent — check your email inbox.';
+  err.style.display='block';
 }
 
 /* ---------------- boot ---------------- */

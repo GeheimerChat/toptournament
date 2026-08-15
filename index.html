@@ -390,6 +390,11 @@
           <div class="mi-body"><div class="mi-title">Customer support</div><div class="mi-sub">Chat with our team</div></div>
           <div class="chev">›</div>
         </button>
+        <button class="menu-item menu-item-danger" onclick="playerLogout()">
+          <div class="mi-icon">🚪</div>
+          <div class="mi-body"><div class="mi-title">Log out</div><div class="mi-sub">Sign out on this device</div></div>
+          <div class="chev">›</div>
+        </button>
       </div>
     </div>
 
@@ -404,6 +409,14 @@
         <div class="mi-sub" style="margin-bottom:12px;">This is what other players see on the leaderboard.</div>
         <div class="field"><input id="edit-name-input" placeholder="Your display name"></div>
         <button class="primary-btn" onclick="saveDisplayName()">Save name</button>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="mi-title" style="margin-bottom:2px;">Account security</div>
+        <div class="mi-sub" style="margin-bottom:12px;">Changing your password signs you out everywhere, on every device.</div>
+        <div class="field"><input id="new-player-password" type="password" placeholder="New password (min 6 characters)"></div>
+        <div class="error-msg" id="player-password-err"></div>
+        <button class="primary-btn" onclick="changePlayerPassword()">Update password</button>
       </div>
 
       <div class="card" style="margin-bottom:16px;">

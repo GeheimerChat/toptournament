@@ -1712,6 +1712,51 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 
+/* ---------------- account: logout & password ---------------- */
+
+/* Tear down every realtime subscription and clear in-memory state so
+   nothing from the old session lingers if someone else logs in after. */
+function clearSessionState(){
+  [ludoChannel, slChannel, tttChannel, supportChannel].forEach(ch => { if(ch) sb.removeChannel(ch); });
+  ludoChannel = slChannel = tttChannel = supportChannel = null;
+  ludoRoom = slRoom = tttRoom = null;
+  currentProfile = null;
+  mySupportChatId = null;
+}
+
+async function playerLogout(){
+  if(!confirm('Log out of Top Tournament on this device?')) return;
+  clearSessionState();
+  await sb.auth.signOut();
+  location.reload();
+}
+
+/* Changing the password revokes every session everywhere — any other
+   phone or browser still signed in is kicked out immediately. */
+async function changePlayerPassword(){
+  const pass = document.getElementById('new-player-password').value;
+  const err = document.getElementById('player-password-err');
+  err.style.color = 'var(--red)';
+
+  if(!pass || pass.length < 6){
+    err.textContent = 'Password must be at least 6 characters.';
+    err.style.display = 'block';
+    return;
+  }
+  if(!confirm('Change your password? You will be signed out on every device, including this one.')) return;
+
+  const { error } = await sb.auth.updateUser({ password: pass });
+  if(error){ err.textContent = error.message; err.style.display = 'block'; return; }
+
+  err.style.color = 'var(--teal)';
+  err.textContent = 'Password updated — signing out everywhere…';
+  err.style.display = 'block';
+
+  clearSessionState();
+  await sb.auth.signOut({ scope: 'global' });   // revokes all refresh tokens
+  setTimeout(() => location.reload(), 1200);
+}
+
 /* ---------------- boot ----------------
    Runs last, after every other script has defined its functions.
 ---------------------------------------------------------------- */

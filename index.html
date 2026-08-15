@@ -137,7 +137,7 @@
           <h3>Ludo Online</h3>
           <p>Classic 4-player Ludo. Create a room, share the code, play together in real time.</p>
           <div class="tag-row"><span class="tag live">4 players</span><span class="tag">Room code</span></div>
-          <button class="play-btn primary" onclick="openLudo()">Play now</button>
+          <div class="lu-count-row"><label>Players</label><select id="ludo-player-count" onclick="event.stopPropagation()"><option value="2">2P</option><option value="3">3P</option><option value="4" selected>4P</option></select></div><button class="play-btn primary" onclick="openLudo()">Create table</button>
         </div>
         <div class="game-card">
           <div class="game-art art-snake">
@@ -152,7 +152,22 @@
           <h3>Snake & Ladder</h3>
           <p>Roll, climb, and slide your way to square 100 first. 2–4 players, live across devices.</p>
           <div class="tag-row"><span class="tag live">4 players</span><span class="tag">Room code</span></div>
-          <button class="play-btn primary" onclick="openSnake()">Play now</button>
+          <div class="lu-count-row"><label>Players</label><select id="sl-player-count" onclick="event.stopPropagation()"><option value="2">2P</option><option value="3">3P</option><option value="4" selected>4P</option></select></div><button class="play-btn primary" onclick="openSnake()">Create board</button>
+        </div>
+        <div class="game-card">
+          <div class="game-art art-ttt">
+            <span class="chip live">LIVE</span>
+            <div class="ttt-mini">
+              <s class="x"></s><s></s><s class="o"></s>
+              <s></s><s class="x"></s><s class="o"></s>
+              <s class="o"></s><s></s><s class="x"></s>
+              <span class="ttt-mini-line"></span>
+            </div>
+          </div>
+          <h3>Tic-Tac-Toe</h3>
+          <p>Play a friend across devices, or take on a computer that never loses on Hard.</p>
+          <div class="tag-row"><span class="tag live">2 players</span><span class="tag">vs Computer</span></div>
+          <button class="play-btn primary" onclick="tttStartSolo()">Play now</button>
         </div>
         <div class="game-card soon">
           <div class="game-art art-carrom">
@@ -190,69 +205,109 @@
     <!-- LUDO ROOM -->
     <div class="page" id="page-ludo">
       <div class="back-row" onclick="goHome()">← Back to games</div>
-      <h2>Ludo Online</h2>
-      <p class="subhead">Share the room code below with friends on other phones so they can join this table.</p>
+      <h2>Ludo</h2>
+      <p class="subhead">Classic rules: roll a six to leave base, land on an opponent to send them home, exact roll to finish.</p>
 
       <div class="room-box">
         <div>
           <div style="font-size:11px;color:var(--text-dim);font-weight:700;">ROOM CODE</div>
-          <div class="room-code" id="room-code">TT-4821</div>
+          <div class="room-code" id="ludo-room-code">TT-0000</div>
         </div>
-        <button class="copy-btn" onclick="copyRoom()">Copy & invite</button>
+        <button class="copy-btn" onclick="copyRoom()">Copy &amp; invite</button>
       </div>
-
       <div class="room-box" style="gap:10px;">
         <input id="join-code-input" placeholder="Have a code? Enter it here" style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;">
         <button class="copy-btn" onclick="joinRoomByCode()">Join</button>
       </div>
 
-      <div class="seats">
-        <div class="seat you"><div class="dot" style="background:#ff5d73;"></div>You</div>
-        <div class="seat"><div class="dot" style="background:#2ee6c5;"></div>Waiting…</div>
-        <div class="seat empty"><div class="dot" style="background:#f2b134;"></div>Empty</div>
-        <div class="seat empty"><div class="dot" style="background:#7c9cff;"></div>Empty</div>
+      <div class="ludo-stage">
+        <div class="lu-seats" id="ludo-seats"></div>
+        <div class="lu-board" id="ludo-board"></div>
+        <div class="lu-controls">
+          <div class="lu-die" id="ludo-die">🎲</div>
+          <button class="lu-roll-btn" id="ludo-roll-btn" onclick="rollLudoDice()">Roll dice</button>
+        </div>
+        <div class="lu-status" id="ludo-status">Create or join a table to begin.</div>
+        <div class="lu-event" id="ludo-event"></div>
       </div>
+    </div>
 
-      <div class="card board-wrap">
-        <div class="turn-status" id="turn-status">Your turn — roll the dice</div>
-        <div class="dice-result" id="dice-result">🎲</div>
-        <button id="dice-btn" onclick="rollDice()">Roll dice</button>
+    <!-- TIC-TAC-TOE -->
+    <div class="page" id="page-ttt">
+      <div class="back-row" onclick="goHome()">← Back to games</div>
+      <h2>Tic-Tac-Toe</h2>
+      <p class="subhead">Three in a row wins. Play the computer, or a friend on another device.</p>
+
+      <div class="ttt-stage">
+        <div class="ttt-mode-row">
+          <button class="copy-btn" onclick="tttStartSolo()">🤖 vs Computer</button>
+          <button class="copy-btn" onclick="tttCreateRoom()">🔗 Create online room</button>
+        </div>
+
+        <div id="ttt-solo-opts">
+          <div class="ttt-diffs">
+            <button class="ttt-diff" data-level="easy"   onclick="tttSetDifficulty('easy')">Easy</button>
+            <button class="ttt-diff" data-level="medium" onclick="tttSetDifficulty('medium')">Medium</button>
+            <button class="ttt-diff active" data-level="hard" onclick="tttSetDifficulty('hard')">Hard</button>
+          </div>
+        </div>
+
+        <div id="ttt-online-bar" class="hidden">
+          <div class="room-box">
+            <div>
+              <div style="font-size:11px;color:var(--text-dim);font-weight:700;">ROOM CODE</div>
+              <div class="room-code" id="ttt-room-code">TT-0000</div>
+            </div>
+            <button class="copy-btn" onclick="tttCopyRoom()">Copy &amp; invite</button>
+          </div>
+        </div>
+
+        <div class="room-box" style="gap:10px;">
+          <input id="ttt-join-input" placeholder="Join with a room code" style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;">
+          <button class="copy-btn" onclick="tttJoinRoom()">Join</button>
+        </div>
+
+        <div class="ttt-scores" id="ttt-scores"></div>
+        <div class="ttt-board" id="ttt-board"></div>
+        <div class="ttt-status" id="ttt-status">Your turn.</div>
+        <div class="ttt-actions">
+          <button class="ttt-again hidden" id="ttt-again" onclick="tttPlayAgain()">Play again</button>
+        </div>
       </div>
     </div>
 
     <!-- SNAKE & LADDER ROOM -->
     <div class="page" id="page-snake">
       <div class="back-row" onclick="goHome()">← Back to games</div>
-      <h2>Snake & Ladder</h2>
-      <p class="subhead">First to square 100 wins. Share the room code so friends on other phones can join.</p>
+      <h2>Snake &amp; Ladder</h2>
+      <p class="subhead">Climb the ladders, dodge the snakes. First to land exactly on 100 wins. A six earns another roll.</p>
 
       <div class="room-box">
         <div>
-          <div style="font-size:11px;color:var(--text-dim);font-weight:700;">ROOM CODE</div>
-          <div class="room-code" id="sl-room-code">TT-4821</div>
+          <div style="font-size:11px;color:var(--text-dim);font-weight:700;">BOARD CODE</div>
+          <div class="room-code" id="sl-room-code">TT-0000</div>
         </div>
-        <button class="copy-btn" onclick="copySlRoom()">Copy & invite</button>
+        <button class="copy-btn" onclick="copySlRoom()">Copy &amp; invite</button>
       </div>
       <div class="room-box" style="gap:10px;">
         <input id="sl-join-code-input" placeholder="Have a code? Enter it here" style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;">
         <button class="copy-btn" onclick="joinSlRoomByCode()">Join</button>
       </div>
 
-      <div class="seats" id="sl-seats">
-        <div class="seat you"><div class="dot" style="background:#ff5d73;"></div>You</div>
-        <div class="seat empty"><div class="dot" style="background:#2ee6c5;"></div>Empty</div>
-        <div class="seat empty"><div class="dot" style="background:#f2b134;"></div>Empty</div>
-        <div class="seat empty"><div class="dot" style="background:#7c9cff;"></div>Empty</div>
-      </div>
-
-      <div class="sl-board-wrap">
-        <div class="sl-board" id="sl-board"></div>
-      </div>
-
-      <div class="card board-wrap" style="margin-top:16px;">
-        <div class="turn-status" id="sl-turn-status">Your turn — roll the dice</div>
-        <div class="dice-result" id="sl-dice-result">🎲</div>
-        <button id="sl-dice-btn" onclick="rollSlDice()">Roll dice</button>
+      <div class="sl-stage">
+        <div class="lu-seats" id="sl-seats"></div>
+        <div class="sl-board">
+          <div class="sl-grid" id="sl-grid"></div>
+          <svg class="sl-art" id="sl-art" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+          <div class="sl-tokens" id="sl-tokens"></div>
+        </div>
+        <div class="sl-tray-row"><span>Not started:</span><div class="sl-tray" id="sl-tray"></div></div>
+        <div class="sl-controls">
+          <div class="lu-die" id="sl-die">🎲</div>
+          <button class="lu-roll-btn" id="sl-roll-btn" onclick="rollSlDice()">Roll dice</button>
+        </div>
+        <div class="lu-status" id="sl-status">Create or join a board to begin.</div>
+        <div class="lu-event" id="sl-event"></div>
       </div>
     </div>
 

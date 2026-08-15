@@ -1,31 +1,28 @@
 # Top Tournament — Player App
 
-Single static file (`player.html`) — no build step, no server. Talks directly to Supabase from the browser.
+Three files. No build step, no image downloads, no external assets beyond fonts and the Supabase library.
 
-## 1. Set up the database (one-time, in Supabase — not in this repo)
-In your Supabase project → **SQL Editor** → New query, run these **in order**:
-1. `schema.sql` — accounts, sequential player IDs, KYC, history, withdrawals
-2. `schema_v2.sql` — wallets, admin roles, tournaments, matches, support chat
-3. `schema_v3.sql` — Snake & Ladder rooms
+```
+player.html    all the screens (markup)
+style.css      themes, layout, and the CSS-drawn game artwork
+app.js         all the logic
+```
 
-(These three files live outside this repo — keep them on your computer, they're only ever pasted into Supabase's SQL Editor.)
+## Game artwork
+The Ludo board, Snake & Ladder board, Carrom board and playing-card fan on the home screen are **drawn entirely in CSS** — divs, gradients and transforms. No image files, nothing to download, no licensing to worry about, and they can never fail to load or appear broken. To restyle them, edit the `GAMEART` section at the bottom of `style.css`.
 
-## 2. Deploy this repo on GitHub Pages
-1. Push this repo to GitHub (**Public**, for free Pages hosting).
-2. Repo → **Settings → Pages** → Source: "Deploy from a branch" → Branch `main`, folder `/ (root)` → Save.
-3. Your live URL appears at the top of that page after a minute or two:
-   `https://YOUR-USERNAME.github.io/REPO-NAME/player.html`
+## Deploy on GitHub Pages
+1. Upload all three files to your repo root (plus this README if you like).
+2. Repo → **Settings → Pages** → Deploy from a branch → `main`, `/ (root)` → Save.
+3. Live at `https://YOUR-USERNAME.github.io/REPO-NAME/player.html`
+
+## Database setup (one-time, in Supabase — not in this repo)
+Run these in the SQL Editor **in this order**:
+`schema.sql` → `schema_v2.sql` → `schema_v3.sql` → `schema_v4.sql` → `schema_v5.sql`
 
 ## What's in the app
-- **Login** — email/password via Supabase Auth, custom "I'm not a robot" captcha, sign-up flow with sequential Player IDs (starting at 2063453).
-- **Home** — pick a game:
-  - **Ludo** — real 4-player multiplayer via room codes, live across devices (Supabase Realtime).
-  - **Snake & Ladder** — same live multiplayer pattern, full 10×10 board with ladders/snakes and animated tokens.
-  - Carrom and Rummy are listed as "In development" — real physics/card-rule engines are bigger separate builds.
-- **Tournaments** — free entry, browse open tournaments with banners, register, see your confirmation status and match/colour assignment once the admin places you.
-- **History** — activity from the last 5 days.
-- **Profile** — live wallet balance, Settings (theme + KYC verification), Deposit (Telegram handle), Withdraw (locked until KYC, generates a 5-letter code for the organizer), Customer support chat (auto-deletes once resolved).
+Login with captcha and password reset · Ludo and Snake & Ladder (real multiplayer across devices via room codes) · Tournaments with free registration and admin-confirmed placement · Leaderboard · Notifications · History · Wallet with live balance · KYC-gated withdrawals · Customer support chat · Three themes (Cream is the default).
 
 ## Notes
-- The Supabase anon key visible in this file is meant to be public — real protection comes from the Row Level Security rules set up by the SQL files, not from hiding the key.
-- "Deposit" is a manual, admin-confirmed flow (no payment gateway). Before opening this to real users, it's worth checking local gambling/payment-services regulations for your audience, and considering a proper payment processor with a verifiable trail.
+- The Supabase anon key in `app.js` is meant to be public — protection comes from the Row Level Security rules in the SQL files. Never put the `service_role` key here.
+- Deposits are a manual, admin-confirmed flow. Before handling real money, check the gambling and payment-services rules that apply where your players are.

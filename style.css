@@ -671,3 +671,47 @@
    Dim the artwork on cards that aren't playable yet
    --------------------------------------------------------- */
 .game-card.soon .game-art{ filter:saturate(.55) brightness(.82); }
+
+/* ===== SUPPORT CHAT ===== */
+.support-card{
+  display:flex; flex-direction:column;
+  height:min(440px, 60vh);
+  padding:16px;
+  overflow:hidden;              /* keeps the composer inside the card */
+}
+.support-scroll{
+  flex:1 1 auto; min-height:0;  /* min-height:0 lets it actually scroll in a flex column */
+  overflow-y:auto;
+  display:flex; flex-direction:column; gap:8px;
+  padding-right:4px;
+}
+.support-empty{
+  flex:1 1 auto;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  text-align:center; color:var(--text-dim); gap:8px; padding:10px;
+}
+.support-empty .emoji{ font-size:30px; opacity:.85; }
+.support-empty .msg{ font-size:13px; max-width:240px; line-height:1.5; }
+
+.support-composer{
+  flex:0 0 auto;                /* never shrinks, never gets pushed out */
+  display:flex; gap:8px; align-items:center;
+  padding-top:12px; margin-top:4px;
+  border-top:1px solid var(--line);
+}
+.support-composer input{
+  flex:1 1 auto; min-width:0;
+  background:var(--panel-2); border:1px solid var(--line); border-radius:10px;
+  padding:11px 13px; color:var(--text); font-size:13.5px; outline:none;
+}
+.support-composer input:focus{ border-color:var(--gold); }
+.support-send{
+  flex:0 0 auto; width:auto; padding:11px 20px; font-size:13.5px; border-radius:10px;
+}
+.support-send:disabled{ opacity:.6; cursor:not-allowed; }
+
+/* chat bubbles */
+.support-msg{ max-width:82%; padding:10px 13px; border-radius:14px; font-size:13.5px; line-height:1.45; }
+.support-msg .who{ font-size:10.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; opacity:.7; margin-bottom:3px; }
+.support-msg.player{ align-self:flex-end; background:linear-gradient(135deg,var(--gold-2),var(--gold)); color:#211500; border-bottom-right-radius:5px; }
+.support-msg.admin{ align-self:flex-start; background:var(--panel-2); border:1px solid var(--line); border-bottom-left-radius:5px; }

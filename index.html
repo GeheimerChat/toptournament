@@ -422,14 +422,15 @@
       <div class="back-row" onclick="goto('page-profile')">← Back to profile</div>
       <h2>Customer support</h2>
       <p class="subhead">Chat with our team. Once your issue is resolved, the chat is deleted automatically.</p>
-      <div class="card" style="display:flex; flex-direction:column; height:420px;">
-        <div id="support-empty" class="empty-note" style="text-align:center; margin:auto;">Start a conversation below.</div>
-        <div id="support-chat-body" class="hidden" style="display:flex; flex-direction:column; height:100%;">
-          <div class="history-list" id="support-messages" style="flex:1; overflow-y:auto; gap:8px;"></div>
+      <div class="card support-card">
+        <div class="support-scroll" id="support-messages"></div>
+        <div class="support-empty" id="support-empty">
+          <div class="emoji">💬</div>
+          <div class="msg">Start a conversation below — our team will reply here.</div>
         </div>
-        <div style="display:flex; gap:8px; margin-top:12px;">
-          <input id="support-input" placeholder="Describe your issue…" style="flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;">
-          <button class="copy-btn" onclick="sendSupportMessage()">Send</button>
+        <div class="support-composer">
+          <input id="support-input" placeholder="Describe your issue…" autocomplete="off">
+          <button class="primary-btn support-send" id="support-send-btn" onclick="sendSupportMessage()">Send</button>
         </div>
       </div>
     </div>

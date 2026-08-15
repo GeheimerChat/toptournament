@@ -700,49 +700,88 @@ let mySupportChatId = null;
 let supportChannel = null;
 
 async function renderSupport(){
-  const { data } = await sb.from('support_chats').select('*').eq('user_id', currentProfile.id).eq('status','open').order('created_at',{ascending:false}).limit(1).maybeSingle();
+  if(!currentProfile) return;
+  const { data, error } = await sb.from('support_chats').select('*')
+    .eq('user_id', currentProfile.id).eq('status','open')
+    .order('created_at',{ascending:false}).limit(1).maybeSingle();
+
+  if(error) console.warn('support load:', error.message);
   mySupportChatId = data ? data.id : null;
   document.getElementById('support-empty').classList.toggle('hidden', !!mySupportChatId);
-  document.getElementById('support-chat-body').classList.toggle('hidden', !mySupportChatId);
+
   if(mySupportChatId){
     await renderSupportMessages();
-    if(supportChannel) sb.removeChannel(supportChannel);
-    supportChannel = sb.channel('support-'+mySupportChatId)
-      .on('postgres_changes', { event:'INSERT', schema:'public', table:'support_messages', filter:`chat_id=eq.${mySupportChatId}` }, renderSupportMessages)
-      .subscribe();
-  }
-}
-async function renderSupportMessages(){
-  if(!mySupportChatId) return;
-  const { data } = await sb.from('support_messages').select('*').eq('chat_id', mySupportChatId).order('created_at',{ascending:true});
-  const wrap = document.getElementById('support-messages');
-  wrap.innerHTML = (data||[]).map(m => `
-    <div class="history-item" style="background:${m.sender==='admin' ? 'var(--panel-2)' : 'var(--panel)'};">
-      <div class="hi-body"><div class="hi-title">${m.sender==='admin' ? '🛡️ Support' : 'You'}</div><div class="hi-time">${m.body}</div></div>
-    </div>`).join('');
-  wrap.scrollTop = wrap.scrollHeight;
-}
-async function sendSupportMessage(){
-  const input = document.getElementById('support-input');
-  const body = input.value.trim();
-  if(!body) return;
-  if(!mySupportChatId){
-    const { data, error } = await sb.from('support_chats').insert({ user_id: currentProfile.id, subject: body.slice(0,60) }).select().single();
-    if(error){ alert(error.message); return; }
-    mySupportChatId = data.id;
-    document.getElementById('support-empty').classList.add('hidden');
-    document.getElementById('support-chat-body').classList.remove('hidden');
-  }
-  await sb.from('support_messages').insert({ chat_id: mySupportChatId, sender:'player', body });
-  input.value = '';
-  renderSupportMessages();
-  if(!supportChannel){
-    supportChannel = sb.channel('support-'+mySupportChatId)
-      .on('postgres_changes', { event:'INSERT', schema:'public', table:'support_messages', filter:`chat_id=eq.${mySupportChatId}` }, renderSupportMessages)
-      .subscribe();
+    subscribeSupport();
+  } else {
+    document.getElementById('support-messages').innerHTML = '';
   }
 }
 
+function subscribeSupport(){
+  if(!mySupportChatId) return;
+  if(supportChannel) sb.removeChannel(supportChannel);
+  supportChannel = sb.channel('support-'+mySupportChatId)
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'support_messages', filter:`chat_id=eq.${mySupportChatId}` }, renderSupportMessages)
+    .subscribe();
+}
+
+async function renderSupportMessages(){
+  if(!mySupportChatId) return;
+  const { data, error } = await sb.from('support_messages').select('*')
+    .eq('chat_id', mySupportChatId).order('created_at',{ascending:true});
+  const wrap = document.getElementById('support-messages');
+  if(error){ wrap.innerHTML = `<div class="support-msg admin">Couldn't load messages: ${error.message}</div>`; return; }
+  wrap.innerHTML = (data||[]).map(m => `
+    <div class="support-msg ${m.sender === 'admin' ? 'admin' : 'player'}">
+      <div class="who">${m.sender === 'admin' ? 'Support' : 'You'}</div>
+      <div>${escapeHtml(m.body)}</div>
+    </div>`).join('');
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function sendSupportMessage(){
+  const input = document.getElementById('support-input');
+  const btn = document.getElementById('support-send-btn');
+  const body = input.value.trim();
+  if(!body) { input.focus(); return; }
+  if(!currentProfile){ alert('Please log in again.'); return; }
+
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try{
+    if(!mySupportChatId){
+      const { data, error } = await sb.from('support_chats')
+        .insert({ user_id: currentProfile.id, subject: body.slice(0,60) })
+        .select().single();
+      if(error) throw error;
+      mySupportChatId = data.id;
+      document.getElementById('support-empty').classList.add('hidden');
+      subscribeSupport();
+    }
+    const { error: msgErr } = await sb.from('support_messages')
+      .insert({ chat_id: mySupportChatId, sender:'player', body });
+    if(msgErr) throw msgErr;
+
+    input.value = '';
+    await renderSupportMessages();
+  } catch(e){
+    alert('Could not send: ' + (e.message || e));
+  } finally {
+    btn.disabled = false; btn.textContent = 'Send';
+    input.focus();
+  }
+}
+
+/* press Enter to send */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const input = document.getElementById('support-input');
+  if(input) input.addEventListener('keydown', e => {
+    if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendSupportMessage(); }
+  });
+});
 
 /* ---------------- notifications ---------------- */
 async function checkNotifDot(){

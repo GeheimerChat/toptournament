@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Top Tournament</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎲</text></svg>">
+<meta name="theme-color" content="#0b1226">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg: #0b1226;
+    --bg-2: #131d3f;
+    --panel: #161f47;
+    --panel-2: #1c2856;
+    --line: rgba(255,255,255,0.09);
+    --gold: #f2b134;
+    --gold-2: #ffd166;
+    --teal: #2ee6c5;
+    --blue: #7c9cff;
+    --red: #ff5d73;
+    --text: #eef1fb;
+    --text-dim: #98a1c4;
+    --radius: 18px;
+    --shadow-sm: 0 4px 14px rgba(4,8,24,0.25);
+    --shadow-md: 0 14px 34px rgba(4,8,24,0.35);
+    --shadow-gold: 0 10px 26px rgba(242,177,52,0.28);
+    --font-display: 'Baloo 2', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+  html[data-theme="light"]{
+    --bg: #f4f1ea;
+    --bg-2: #eae4d6;
+    --panel: #ffffff;
+    --panel-2: #fbf8f1;
+    --line: rgba(20,20,20,0.08);
+    --text: #1b1a17;
+    --text-dim: #6c6656;
+  }
+  html[data-theme="crimson"]{
+    --bg: #1c0e14;
+    --bg-2: #24121a;
+    --panel: #2c151e;
+    --panel-2: #351a26;
+    --line: rgba(255,255,255,0.08);
+    --gold: #ff9f43;
+    --teal: #ff5d73;
+    --text: #f7ecef;
+    --text-dim: #c79aa9;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  html,body{height:100%;}
+  :focus-visible{outline:2px solid var(--gold); outline-offset:2px; border-radius:4px;}
+  ::-webkit-scrollbar{width:9px; height:9px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--panel-2); border-radius:20px; border:2px solid var(--bg);}
+  ::-webkit-scrollbar-thumb:hover{background:var(--gold);}
+  body{
+    background:
+      radial-gradient(circle at 15% 8%, rgba(242,177,52,0.10), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(46,230,197,0.10), transparent 40%),
+      radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px) 0 0/26px 26px,
+      var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+    transition:background .3s ease, color .3s ease;
+    min-height:100vh;
+  }
+  html[data-theme="light"] body{
+    background:
+      radial-gradient(circle at 15% 8%, rgba(242,177,52,0.08), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(46,230,197,0.08), transparent 40%),
+      radial-gradient(rgba(20,20,20,0.035) 1px, transparent 1px) 0 0/26px 26px,
+      var(--bg);
+  }
+  h1,h2,h3,.display{font-family:var(--font-display); letter-spacing:.2px;}
+  a{color:inherit;}
+  button{font-family:inherit; cursor:pointer;}
+  .hidden{display:none !important;}
+
+  /* ---------- Login Screen ---------- */
+  #login-screen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .login-wrap{
+    width:100%;
+    max-width:960px;
+    display:grid;
+    grid-template-columns:1.1fr 1fr;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:24px;
+    overflow:hidden;
+    box-shadow:0 30px 80px rgba(0,0,0,0.35);
+  }
+  @media (max-width:800px){ .login-wrap{grid-template-columns:1fr;} }
+
+  .login-hero{
+    background:
+      radial-gradient(circle at 30% 20%, rgba(242,177,52,0.32), transparent 55%),
+      linear-gradient(160deg, #101a3e, #0a1230);
+    padding:48px 40px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    position:relative;
+    overflow:hidden;
+    color:#fff;
+  }
+  /* signature: a quarter of a ludo board, glowing in the corner */
+  .ludo-track{
+    position:absolute; right:-70px; bottom:-70px; width:280px; height:280px;
+    display:grid; grid-template-columns:repeat(6,1fr); grid-template-rows:repeat(6,1fr);
+    opacity:.5; transform:rotate(-6deg); pointer-events:none;
+  }
+  .ludo-track div{border:1px solid rgba(255,255,255,0.06);}
+  .ludo-track div:nth-child(4n+1){background:rgba(242,177,52,0.10);}
+  .ludo-track div:nth-child(7n+2){background:rgba(46,230,197,0.09);}
+
+  .brandmark{display:flex; align-items:center; gap:10px; font-family:var(--font-display); font-weight:800; font-size:22px; position:relative; z-index:2;}
+  .dice{
+    width:34px; height:34px; border-radius:9px;
+    background:linear-gradient(145deg, var(--gold-2), var(--gold));
+    display:grid; place-items:center;
+    box-shadow:0 6px 16px rgba(242,177,52,.4);
+    animation:bounce 2.4s ease-in-out infinite;
+  }
+  .dice svg{width:18px;height:18px;}
+  @keyframes bounce{
+    0%,100%{transform:translateY(0) rotate(0deg);}
+    50%{transform:translateY(-6px) rotate(8deg);}
+  }
+  .tokens{position:relative; height:180px; margin:22px 0; z-index:2;}
+  .token{
+    position:absolute; width:26px; height:26px; border-radius:50%;
+    box-shadow:0 6px 14px rgba(0,0,0,.35), inset 0 -3px 0 rgba(0,0,0,.2), 0 0 0 4px rgba(255,255,255,0.06);
+  }
+  .t1{background:#ff5d73; top:10px; left:20px; animation:float 3.2s ease-in-out infinite;}
+  .t2{background:#2ee6c5; top:70px; left:90px; animation:float 3.6s ease-in-out infinite .3s;}
+  .t3{background:#f2b134; top:20px; left:170px; animation:float 3s ease-in-out infinite .6s;}
+  .t4{background:#7c9cff; top:100px; left:230px; animation:float 3.8s ease-in-out infinite .1s;}
+  @keyframes float{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-14px);} }
+  .hero-copy{position:relative; z-index:2;}
+  .hero-copy .eyebrow{
+    display:inline-block; font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--gold-2); background:rgba(242,177,52,0.12); border:1px solid rgba(242,177,52,0.3);
+    padding:5px 11px; border-radius:20px; margin-bottom:14px;
+  }
+  .hero-copy h1{font-size:36px; line-height:1.08; margin:0 0 10px; letter-spacing:.2px;}
+  .hero-copy p{color:#b9c1e6; font-size:15px; line-height:1.55; max-width:340px;}
+  .hero-chips{display:flex; gap:8px; margin-top:18px; flex-wrap:wrap;}
+  .hero-chip{font-size:11.5px; font-weight:600; color:#d7ddf5; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); padding:6px 11px; border-radius:20px;}
+  .hero-foot{font-size:12px; color:#7c86b3; position:relative; z-index:2;}
+
+  .login-form{padding:44px 40px; display:flex; flex-direction:column; justify-content:center;}
+  .login-form h2{margin:0 0 4px; font-size:26px;}
+  .login-form .sub{color:var(--text-dim); font-size:14px; margin:0 0 26px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-dim); margin-bottom:6px;}
+  .field input{
+    width:100%; padding:13px 14px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel-2); color:var(--text); font-size:14px; outline:none;
+    transition:border-color .15s ease;
+  }
+  .field input:focus{border-color:var(--gold);}
+  .primary-btn{
+    width:100%; padding:14px; border:none; border-radius:10px; font-weight:700; font-size:15px;
+    background:linear-gradient(135deg, var(--gold-2), var(--gold)); color:#211500;
+    box-shadow:var(--shadow-gold);
+    transition:transform .1s ease, box-shadow .2s ease;
+    position:relative; overflow:hidden;
+  }
+  .primary-btn::after{
+    content:""; position:absolute; top:0; left:-60%; width:40%; height:100%;
+    background:linear-gradient(115deg, transparent, rgba(255,255,255,0.55), transparent);
+    transform:skewX(-20deg);
+  }
+  .primary-btn:hover::after{ animation:shine 1s ease; }
+  @keyframes shine{ from{left:-60%;} to{left:130%;} }
+  .primary-btn:hover{ box-shadow:0 14px 30px rgba(242,177,52,.4); }
+  .primary-btn:active{transform:scale(.98);}
+  .primary-btn[disabled]{opacity:.5; cursor:not-allowed; box-shadow:none;}
+  .ghost-btn{
+    width:100%; padding:13px; border-radius:10px; border:1px solid var(--line);
+    background:transparent; color:var(--text); font-weight:600; font-size:14px; margin-top:10px;
+  }
+  .divider{display:flex; align-items:center; gap:10px; color:var(--text-dim); font-size:12px; margin:18px 0;}
+  .divider::before,.divider::after{content:""; flex:1; height:1px; background:var(--line);}
+
+  .captcha-box{
+    display:flex; align-items:center; gap:12px; border:1px solid var(--line);
+    background:var(--panel-2); border-radius:10px; padding:12px 14px; margin-bottom:16px; user-select:none;
+  }
+  .captcha-check{
+    width:22px; height:22px; border-radius:5px; border:2px solid var(--text-dim); flex-shrink:0;
+    display:grid; place-items:center; cursor:pointer; transition:.15s ease;
+  }
+  .captcha-check.checking{border-color:var(--gold);}
+  .captcha-check.done{background:var(--teal); border-color:var(--teal);}
+  .captcha-check svg{width:14px; height:14px; opacity:0; transition:opacity .1s ease;}
+  .captcha-check.done svg{opacity:1;}
+  .spinner{width:16px; height:16px; border:2px solid var(--text-dim); border-top-color:var(--gold); border-radius:50%; animation:spin .7s linear infinite; display:none;}
+  .captcha-check.checking .spinner{display:block;}
+  .captcha-check.checking svg{display:none;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .captcha-label{font-size:13px; color:var(--text-dim); flex:1;}
+  .captcha-badge{font-size:9px; font-weight:700; letter-spacing:.05em; color:var(--text-dim); text-align:right; line-height:1.3;}
+
+  .toggle-line{text-align:center; font-size:13px; color:var(--text-dim); margin-top:18px;}
+  .toggle-line button{background:none; border:none; color:var(--teal); font-weight:700; font-size:13px;}
+  .error-msg{color:var(--red); font-size:12.5px; margin:-6px 0 14px; display:none;}
+
+  /* ---------- App Shell ---------- */
+  #app{min-height:100vh; display:none;}
+  #app.active{display:block;}
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 24px; border-bottom:1px solid var(--line); background:var(--panel);
+    position:sticky; top:0; z-index:20; box-shadow:var(--shadow-sm);
+  }
+  .topbar .brandmark{color:var(--text); font-size:18px;}
+  .topbar .brandmark .dice{width:28px; height:28px;}
+  .uid-chip{
+    font-size:11.5px; color:var(--text-dim); background:var(--panel-2); border:1px solid var(--line);
+    padding:6px 10px; border-radius:20px; font-weight:600;
+  }
+  .shell{max-width:1000px; margin:0 auto; padding:24px 20px 100px;}
+  .page{display:none; animation:fadein .25s ease;}
+  .page.active{display:block;}
+  @keyframes fadein{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+  .page h2{margin:0 0 4px; font-size:24px;}
+  .page .subhead{color:var(--text-dim); font-size:14px; margin:0 0 24px;}
+
+  .bottom-nav{
+    position:fixed; bottom:14px; left:0; right:0; display:flex; justify-content:center;
+    padding:0 16px; z-index:30; pointer-events:none;
+  }
+  .bottom-nav-inner{
+    display:flex; gap:4px; max-width:420px; width:100%; pointer-events:all;
+    background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:6px;
+    box-shadow:var(--shadow-md); backdrop-filter:blur(10px);
+  }
+  .nav-btn{
+    flex:1; background:none; border:none; padding:9px 4px; border-radius:14px; text-align:center;
+    color:var(--text-dim); font-size:11.5px; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:4px;
+    transition:.18s ease;
+  }
+  .nav-btn svg{width:20px; height:20px;}
+  .nav-btn.active{color:#211500; background:linear-gradient(135deg, var(--gold-2), var(--gold)); box-shadow:var(--shadow-gold);}
+
+  /* game cards */
+  .game-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px;}
+  .game-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:20px;
+    display:flex; flex-direction:column; gap:10px; box-shadow:var(--shadow-sm);
+    transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+  }
+  .game-card:hover{transform:translateY(-4px); border-color:var(--gold); box-shadow:var(--shadow-md);}
+  .game-icon{
+    width:52px; height:52px; border-radius:14px; display:grid; place-items:center; font-size:24px;
+    box-shadow:inset 0 0 0 1px var(--line);
+  }
+  .game-card h3{margin:0; font-size:17px;}
+  .game-card p{margin:0; font-size:12.5px; color:var(--text-dim); line-height:1.45;}
+  .tag-row{display:flex; gap:6px; margin-top:2px; align-items:center;}
+  .tag{font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; background:var(--panel-2); color:var(--text-dim);}
+  .tag.live{background:rgba(46,230,197,.15); color:var(--teal); display:flex; align-items:center; gap:5px;}
+  .tag.live::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--teal); animation:pulse 1.6s ease-in-out infinite;}
+  @keyframes pulse{ 0%,100%{opacity:1; transform:scale(1);} 50%{opacity:.4; transform:scale(.7);} }
+  .play-btn{
+    margin-top:auto; padding:11px; border-radius:10px; font-weight:700; font-size:13px;
+    background:var(--panel-2); color:var(--text); border:1px solid var(--line); transition:.15s ease;
+  }
+  .play-btn:not(:disabled):hover{border-color:var(--gold); color:var(--gold-2);}
+  .play-btn.primary{background:linear-gradient(135deg, var(--gold-2), var(--gold)); color:#211500; border:none; box-shadow:var(--shadow-gold);}
+  .play-btn.primary:hover{color:#211500; box-shadow:0 12px 26px rgba(242,177,52,.38);}
+  .play-btn:disabled{opacity:.5; cursor:not-allowed;}
+
+  /* history */
+  .history-list{display:flex; flex-direction:column; gap:10px;}
+  .history-day-label{font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-dim); margin:18px 0 8px;}
+  .history-day-label:first-child{margin-top:0;}
+  .history-item{
+    display:flex; align-items:center; gap:14px; background:var(--panel); border:1px solid var(--line);
+    border-radius:12px; padding:13px 16px; box-shadow:var(--shadow-sm);
+  }
+  .hi-icon{width:38px; height:38px; border-radius:10px; display:grid; place-items:center; font-size:16px; flex-shrink:0; box-shadow:inset 0 0 0 1px var(--line);}
+  .hi-body{flex:1; min-width:0;}
+  .hi-title{font-size:13.5px; font-weight:600;}
+  .hi-time{font-size:11.5px; color:var(--text-dim);}
+  .hi-amount{font-size:13.5px; font-weight:700; white-space:nowrap;}
+  .amt-pos{color:var(--teal);}
+  .amt-neg{color:var(--red);}
+
+  /* profile */
+  .profile-head{display:flex; align-items:center; gap:16px; margin-bottom:26px;}
+  .avatar{
+    width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,var(--gold-2),var(--gold));
+    display:grid; place-items:center; font-family:var(--font-display); font-weight:800; font-size:22px; color:#211500;
+    flex-shrink:0; box-shadow:var(--shadow-gold), 0 0 0 4px var(--panel-2);
+  }
+  .profile-head h2{margin:0;}
+  .profile-head .uid{font-size:12.5px; color:var(--text-dim); margin-top:2px;}
+  .kyc-pill{display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px; margin-top:6px;}
+  .kyc-pill.no{background:rgba(255,93,115,.15); color:var(--red);}
+  .kyc-pill.yes{background:rgba(46,230,197,.15); color:var(--teal);}
+
+  .menu-list{display:flex; flex-direction:column; gap:10px;}
+  .menu-item{
+    display:flex; align-items:center; gap:14px; background:var(--panel); border:1px solid var(--line);
+    border-radius:14px; padding:16px; text-align:left; width:100%; box-shadow:var(--shadow-sm);
+    transition:.15s ease;
+  }
+  .menu-item:hover{border-color:var(--gold); transform:translateX(2px);}
+  .menu-item .mi-icon{width:40px; height:40px; border-radius:11px; background:var(--panel-2); display:grid; place-items:center; font-size:17px; flex-shrink:0; box-shadow:inset 0 0 0 1px var(--line);}
+  .menu-item .mi-body{flex:1;}
+  .menu-item .mi-title{font-weight:700; font-size:14.5px;}
+  .menu-item .mi-sub{font-size:12px; color:var(--text-dim); margin-top:1px;}
+  .menu-item .chev{color:var(--text-dim); font-size:16px; transition:.15s ease;}
+  .menu-item:hover .chev{color:var(--gold); transform:translateX(2px);}
+
+  .subpage{max-width:480px;}
+  .back-row{display:flex; align-items:center; gap:10px; margin-bottom:18px; cursor:pointer; color:var(--text-dim); font-size:13px; font-weight:600;}
+  .back-row:hover{color:var(--text);}
+
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:22px; box-shadow:var(--shadow-sm);}
+
+  .theme-row{display:flex; gap:10px; margin-top:10px;}
+  .theme-swatch{
+    flex:1; border-radius:12px; padding:14px 10px; text-align:center; cursor:pointer; border:2px solid var(--line);
+    font-size:12px; font-weight:700;
+  }
+  .theme-swatch.active{border-color:var(--gold);}
+  .swatch-dot{width:22px; height:22px; border-radius:50%; margin:0 auto 8px;}
+
+  .telegram-box{
+    display:flex; align-items:center; justify-content:space-between; background:var(--panel-2);
+    border:1px solid var(--line); border-radius:12px; padding:16px; margin:16px 0;
+  }
+  .telegram-box .handle{font-family:monospace; font-size:16px; font-weight:700; color:var(--teal);}
+  .copy-btn{background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:12px; font-weight:700; color:var(--text);}
+  .note-box{font-size:12.5px; color:var(--text-dim); line-height:1.6; background:var(--panel-2); border-radius:10px; padding:14px; margin-top:14px;}
+
+  .code-reveal{
+    text-align:center; padding:26px 10px; background:var(--panel-2); border-radius:14px; margin-top:16px;
+  }
+  .code-reveal .code{font-family:monospace; font-size:32px; font-weight:800; letter-spacing:6px; color:var(--gold); margin:10px 0;}
+
+  .locked-banner{
+    display:flex; align-items:center; gap:10px; background:rgba(255,93,115,.12); border:1px solid rgba(255,93,115,.3);
+    color:var(--red); border-radius:10px; padding:12px 14px; font-size:12.5px; margin-bottom:16px; font-weight:600;
+  }
+
+  /* ludo board (simplified demo) */
+  .room-box{display:flex; align-items:center; justify-content:space-between; background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:18px; box-shadow:var(--shadow-sm);}
+  .room-code{font-family:monospace; font-weight:800; font-size:18px; letter-spacing:2px; color:var(--gold);}
+  .seats{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:18px;}
+  .seat{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 8px; text-align:center; font-size:12px;
+    box-shadow:var(--shadow-sm); transition:.18s ease;
+  }
+  .seat .dot{width:18px; height:18px; border-radius:50%; margin:0 auto 8px; box-shadow:0 0 0 4px rgba(255,255,255,0.06);}
+  .seat.you{border-color:var(--gold); box-shadow:0 0 0 1px var(--gold), var(--shadow-sm);}
+  .seat.empty{opacity:.4;}
+  .board-wrap{
+    display:flex; flex-direction:column; align-items:center; gap:16px; position:relative; overflow:hidden;
+  }
+  .board-wrap::before{
+    content:""; position:absolute; inset:-40px; opacity:.5; pointer-events:none;
+    background:
+      conic-gradient(from 0deg at 50% 50%,
+        rgba(255,93,115,.10) 0deg 90deg,
+        rgba(46,230,197,.10) 90deg 180deg,
+        rgba(242,177,52,.10) 180deg 270deg,
+        rgba(124,156,255,.10) 270deg 360deg);
+    border-radius:50%;
+  }
+  .board-wrap > *{position:relative; z-index:1;}
+  #dice-btn{
+    padding:14px 34px; border:none; border-radius:12px; font-weight:800; font-size:15px;
+    background:linear-gradient(135deg, var(--gold-2), var(--gold)); color:#211500; box-shadow:var(--shadow-gold);
+    transition:transform .12s ease;
+  }
+  #dice-btn:not(:disabled):hover{ transform:translateY(-2px); }
+  #dice-btn:not(:disabled):active{ transform:scale(.97); }
+  .dice-result{font-family:var(--font-display); font-size:44px; font-weight:800; filter:drop-shadow(0 6px 14px rgba(0,0,0,.3));}
+  .turn-status{font-size:13px; color:var(--text-dim);}
+
+  .tournament-banner-wrap{position:relative; border-radius:12px; overflow:hidden; margin-bottom:12px; box-shadow:var(--shadow-sm);}
+  .tournament-banner-wrap img{width:100%; max-height:170px; object-fit:cover; display:block; transition:transform .3s ease;}
+  .tournament-banner-wrap:hover img{transform:scale(1.04);}
+  .tournament-banner-wrap::after{content:""; position:absolute; inset:0; background:linear-gradient(180deg, transparent 40%, rgba(0,0,0,.55));}
+
+  .empty-state{text-align:center; padding:36px 20px; color:var(--text-dim);}
+  .empty-state .emoji{font-size:34px; margin-bottom:10px; opacity:.8;}
+  .empty-state .msg{font-size:13.5px;}
+
+  /* snake & ladder board */
+  .sl-board-wrap{position:relative; width:100%; max-width:460px; margin:0 auto; aspect-ratio:1/1;}
+  .sl-board{
+    position:relative; width:100%; height:100%; display:grid; grid-template-columns:repeat(10,1fr); grid-template-rows:repeat(10,1fr);
+    border-radius:14px; overflow:hidden; box-shadow:var(--shadow-md);
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.02) 0 2px, transparent 2px 8px),
+      linear-gradient(160deg, #2a1a08, #1c1005);
+    border:6px solid #201206;
+  }
+  html[data-theme="light"] .sl-board{ background: linear-gradient(160deg, #f0e3c8, #e6d5ad); border-color:#c9ad78; }
+  .sl-cell{
+    position:relative; display:flex; align-items:flex-start; justify-content:flex-end; padding:3px 4px;
+    font-size:9px; font-weight:700; color:rgba(255,255,255,.35);
+  }
+  html[data-theme="light"] .sl-cell{ color:rgba(0,0,0,.35); }
+  .sl-cell.alt{background:rgba(255,255,255,.035);}
+  .sl-cell.ladder{background:rgba(46,230,197,.14);}
+  .sl-cell.snake{background:rgba(255,93,115,.14);}
+  .sl-cell .icon{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:16px; opacity:.85;}
+  .sl-token{
+    position:absolute; width:9%; height:9%; border-radius:50%; box-shadow:0 3px 8px rgba(0,0,0,.4), 0 0 0 2px rgba(255,255,255,.5);
+    transition:left .6s cubic-bezier(.34,1.4,.64,1), top .6s cubic-bezier(.34,1.4,.64,1); z-index:5;
+  }
+
+  ::selection{background:var(--gold); color:#211500;}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN SCREEN ============ -->
+<div id="login-screen">
+  <div class="login-wrap">
+    <div class="login-hero">
+      <div class="ludo-track">
+        <div></div><div></div><div></div><div></div><div></div><div></div>
+        <div></div><div></div><div></div><div></div><div></div><div></div>
+        <div></div><div></div><div></div><div></div><div></div><div></div>
+        <div></div><div></div><div></div><div></div><div></div><div></div>
+        <div></div><div></div><div></div><div></div><div></div><div></div>
+        <div></div><div></div><div></div><div></div><div></div><div></div>
+      </div>
+      <div class="brandmark"><div class="dice"><svg viewBox="0 0 24 24" fill="none"><circle cx="6" cy="6" r="1.8" fill="#211500"/><circle cx="18" cy="6" r="1.8" fill="#211500"/><circle cx="12" cy="12" r="1.8" fill="#211500"/><circle cx="6" cy="18" r="1.8" fill="#211500"/><circle cx="18" cy="18" r="1.8" fill="#211500"/></svg></div>Top Tournament</div>
+      <div class="tokens">
+        <div class="token t1"></div><div class="token t2"></div><div class="token t3"></div><div class="token t4"></div>
+      </div>
+      <div class="hero-copy">
+        <span class="eyebrow">Play across devices</span>
+        <h1>Play. Compete.<br>Top the table.</h1>
+        <p>Jump into Ludo and more with players on other phones, anywhere — roll the dice, climb the leaderboard, and get to the top of the tournament.</p>
+        <div class="hero-chips">
+          <span class="hero-chip">🎲 4-player Ludo</span>
+          <span class="hero-chip">🔗 Room codes</span>
+          <span class="hero-chip">🔒 KYC secured</span>
+        </div>
+      </div>
+      <div class="hero-foot">© 2026 Top Tournament — demo build</div>
+    </div>
+
+    <div class="login-form">
+      <div id="form-login">
+        <h2>Welcome back</h2>
+        <p class="sub">Log in with your email to continue</p>
+
+        <div class="field">
+          <label>Email address</label>
+          <input type="email" id="login-email" placeholder="you@example.com">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="login-password" placeholder="••••••••">
+        </div>
+
+        <div class="captcha-box">
+          <div class="captcha-check" id="captcha-check" onclick="runCaptcha()">
+            <div class="spinner"></div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="#0e1630" stroke-width="3"><path d="M4 12l5 5L20 6"/></svg>
+          </div>
+          <div class="captcha-label" id="captcha-label">I'm not a robot</div>
+          <div class="captcha-badge">TT<br>CAPTCHA</div>
+        </div>
+
+        <div class="error-msg" id="login-error">Please fill in your email, password and confirm the captcha.</div>
+
+        <button class="primary-btn" id="login-btn" onclick="handleLogin()">Log in with Email</button>
+        <div class="toggle-line">New here? <button onclick="showSignup()">Create an account</button></div>
+      </div>
+
+      <div id="form-signup" class="hidden">
+        <h2>Create your account</h2>
+        <p class="sub">You'll get a unique Player ID after signing up</p>
+        <div class="field">
+          <label>Full name</label>
+          <input type="text" id="signup-name" placeholder="Your name">
+        </div>
+        <div class="field">
+          <label>Email address</label>
+          <input type="email" id="signup-email" placeholder="you@example.com">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="signup-password" placeholder="Create a password">
+        </div>
+        <div class="error-msg" id="signup-error">Please fill in every field.</div>
+        <button class="primary-btn" onclick="handleSignup()">Create account</button>
+        <div class="toggle-line">Already have an account? <button onclick="showLogin()">Log in</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP SHELL ============ -->
+<div id="app">
+  <div class="topbar">
+    <div class="brandmark"><div class="dice"><svg viewBox="0 0 24 24" fill="none"><circle cx="6" cy="6" r="1.8" fill="#211500"/><circle cx="18" cy="6" r="1.8" fill="#211500"/><circle cx="12" cy="12" r="1.8" fill="#211500"/><circle cx="6" cy="18" r="1.8" fill="#211500"/><circle cx="18" cy="18" r="1.8" fill="#211500"/></svg></div>Top Tournament</div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <div class="uid-chip" id="topbar-balance" style="color:var(--gold-2); border-color:rgba(242,177,52,.3);">Rs 0</div>
+      <div class="uid-chip" id="topbar-uid">ID 2063453</div>
+    </div>
+  </div>
+
+  <div class="shell">
+
+    <!-- HOME -->
+    <div class="page" id="page-home">
+      <h2>Choose a game</h2>
+      <p class="subhead">Play online with people on other phones, in other places — pick a game and invite friends with a room code.</p>
+      <div class="game-grid">
+        <div class="game-card">
+          <div class="game-icon" style="background:rgba(46,230,197,.15);">🎲</div>
+          <h3>Ludo Online</h3>
+          <p>Classic 4-player Ludo. Create a room, share the code, play together in real time.</p>
+          <div class="tag-row"><span class="tag live">4 players</span><span class="tag">Room code</span></div>
+          <button class="play-btn primary" onclick="openLudo()">Play now</button>
+        </div>
+        <div class="game-card">
+          <div class="game-icon" style="background:rgba(255,93,115,.15);">🐍</div>
+          <h3>Snake & Ladder</h3>
+          <p>Roll, climb, and slide your way to square 100 first. 2–4 players, live across devices.</p>
+          <div class="tag-row"><span class="tag live">4 players</span><span class="tag">Room code</span></div>
+          <button class="play-btn primary" onclick="openSnake()">Play now</button>
+        </div>
+        <div class="game-card">
+          <div class="game-icon" style="background:rgba(242,177,52,.15);">♟️</div>
+          <h3>Carrom</h3>
+          <p>1v1 carrom with real striker physics — a bigger build than a board game, in progress.</p>
+          <div class="tag-row"><span class="tag">2 players</span><span class="tag">In development</span></div>
+          <button class="play-btn" disabled>Coming soon</button>
+        </div>
+        <div class="game-card">
+          <div class="game-icon" style="background:rgba(124,156,255,.15);">🃏</div>
+          <h3>Rummy</h3>
+          <p>13-card rummy with real dealing and rules — a bigger build, in progress.</p>
+          <div class="tag-row"><span class="tag">2–6 players</span><span class="tag">In development</span></div>
+          <button class="play-btn" disabled>Coming soon</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LUDO ROOM -->
+    <div class="page" id="page-ludo">
+      <div class="back-row" onclick="goHome()">← Back to games</div>
+      <h2>Ludo Online</h2>
+      <p class="subhead">Share the room code below with friends on other phones so they can join this table.</p>
+
+      <div class="room-box">
+        <div>
+          <div style="font-size:11px;color:var(--text-dim);font-weight:700;">ROOM CODE</div>
+          <div class="room-code" id="room-code">TT-4821</div>
+        </div>
+        <button class="copy-btn" onclick="copyRoom()">Copy & invite</button>
+      </div>
+
+      <div class="room-box" style="gap:10px;">
+        <input id="join-code-input" placeholder="Have a code? Enter it here" style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;">
+        <button class="copy-btn" onclick="joinRoomByCode()">Join</button>
+      </div>
+
+      <div class="seats">
+        <div class="seat you"><div class="dot" style="background:#ff5d73;"></div>You</div>
+        <div class="seat"><div class="dot" style="background:#2ee6c5;"></div>Waiting…</div>
+        <div class="seat empty"><div class="dot" style="background:#f2b134;"></div>Empty</div>
+        <div class="seat empty"><div class="dot" style="background:#7c9cff;"></div>Empty</div>
+      </div>
+
+      <div class="card board-wrap">
+        <div class="turn-status" id="turn-status">Your turn — roll the dice</div>
+        <div class="dice-result" id="dice-result">🎲</div>
+        <button id="dice-btn" onclick="rollDice()">Roll dice</button>
+      </div>
+    </div>
+
+    <!-- SNAKE & LADDER ROOM -->
+    <div class="page" id="page-snake">
+      <div class="back-row" onclick="goHome()">← Back to games</div>
+      <h2>Snake & Ladder</h2>
+      <p class="subhead">First to square 100 wins. Share the room code so friends on other phones can join.</p>
+
+      <div class="room-box">
+        <div>
+          <div style="font-size:11px;color:var(--text-dim);font-weight:700;">ROOM CODE</div>
+          <div class="room-code" id="sl-room-code">TT-4821</div>
+        </div>
+        <button class="copy-btn" onclick="copySlRoom()">Copy & invite</button>
+      </div>
+      <div class="room-box" style="gap:10px;">
+        <input id="sl-join-code-input" placeholder="Have a code? Enter it here" style="flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;">
+        <button class="copy-btn" onclick="joinSlRoomByCode()">Join</button>
+      </div>
+
+      <div class="seats" id="sl-seats">
+        <div class="seat you"><div class="dot" style="background:#ff5d73;"></div>You</div>
+        <div class="seat empty"><div class="dot" style="background:#2ee6c5;"></div>Empty</div>
+        <div class="seat empty"><div class="dot" style="background:#f2b134;"></div>Empty</div>
+        <div class="seat empty"><div class="dot" style="background:#7c9cff;"></div>Empty</div>
+      </div>
+
+      <div class="sl-board-wrap">
+        <div class="sl-board" id="sl-board"></div>
+      </div>
+
+      <div class="card board-wrap" style="margin-top:16px;">
+        <div class="turn-status" id="sl-turn-status">Your turn — roll the dice</div>
+        <div class="dice-result" id="sl-dice-result">🎲</div>
+        <button id="sl-dice-btn" onclick="rollSlDice()">Roll dice</button>
+      </div>
+    </div>
+
+    <!-- TOURNAMENTS -->
+    <div class="page" id="page-tournaments">
+      <h2>Tournaments</h2>
+      <p class="subhead">Free to join — no entry fee. Register, wait for admin confirmation, and check back for your match.</p>
+      <div id="tournaments-wrap" class="history-list"></div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="page" id="page-history">
+      <h2>History</h2>
+      <p class="subhead">Your activity from the last 5 days.</p>
+      <div class="history-list" id="history-list"></div>
+    </div>
+
+    <!-- PROFILE -->
+    <div class="page" id="page-profile">
+      <div class="profile-head">
+        <div class="avatar" id="profile-avatar">P</div>
+        <div>
+          <h2 id="profile-name">Player</h2>
+          <div class="uid" id="profile-uid">ID 2063453</div>
+          <div class="kyc-pill no" id="kyc-pill">● KYC not verified</div>
+        </div>
+      </div>
+      <div class="menu-list">
+        <button class="menu-item" onclick="goto('page-settings')">
+          <div class="mi-icon">⚙️</div>
+          <div class="mi-body"><div class="mi-title">Settings</div><div class="mi-sub">Theme & KYC verification</div></div>
+          <div class="chev">›</div>
+        </button>
+        <button class="menu-item" onclick="goto('page-deposit')">
+          <div class="mi-icon">➕</div>
+          <div class="mi-body"><div class="mi-title">Deposit</div><div class="mi-sub">Add funds to your wallet</div></div>
+          <div class="chev">›</div>
+        </button>
+        <button class="menu-item" onclick="goto('page-withdraw')">
+          <div class="mi-icon">➖</div>
+          <div class="mi-body"><div class="mi-title">Withdraw</div><div class="mi-sub" id="withdraw-sub">Cash out your winnings</div></div>
+          <div class="chev">›</div>
+        </button>
+        <button class="menu-item" onclick="goto('page-support')">
+          <div class="mi-icon">💬</div>
+          <div class="mi-body"><div class="mi-title">Customer support</div><div class="mi-sub">Chat with our team</div></div>
+          <div class="chev">›</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="page subpage" id="page-settings">
+      <div class="back-row" onclick="goto('page-profile')">← Back to profile</div>
+      <h2>Settings</h2>
+      <p class="subhead">Personalize your app and verify your identity.</p>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="mi-title" style="margin-bottom:2px;">Theme</div>
+        <div class="mi-sub">Choose how Top Tournament looks</div>
+        <div class="theme-row">
+          <div class="theme-swatch" data-theme="dark" onclick="setTheme('dark')"><div class="swatch-dot" style="background:#141d3d;"></div>Midnight</div>
+          <div class="theme-swatch" data-theme="light" onclick="setTheme('light')"><div class="swatch-dot" style="background:#f4f1ea;border:1px solid #ddd;"></div>Cream</div>
+          <div class="theme-swatch" data-theme="crimson" onclick="setTheme('crimson')"><div class="swatch-dot" style="background:#2c151e;"></div>Crimson</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="mi-title" style="margin-bottom:2px;">KYC Verification</div>
+        <div class="mi-sub" style="margin-bottom:14px;">Required to unlock withdrawals.</div>
+        <div id="kyc-form-wrap">
+          <div class="field"><label>Surname</label><input id="kyc-surname" placeholder="Surname"></div>
+          <div class="field"><label>Last name</label><input id="kyc-lastname" placeholder="Last name"></div>
+          <div class="field"><label>Age</label><input id="kyc-age" type="number" placeholder="Age"></div>
+          <div class="field"><label>Location</label><input id="kyc-location" placeholder="City, Country"></div>
+          <div class="field"><label>Document number</label><input id="kyc-doc" placeholder="ID / passport number"></div>
+          <div class="error-msg" id="kyc-error">Please fill in every field.</div>
+          <button class="primary-btn" onclick="submitKyc()">Submit for verification</button>
+        </div>
+        <div id="kyc-done-wrap" class="hidden">
+          <div class="note-box">✅ Your KYC is verified. Withdrawals are unlocked.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEPOSIT -->
+    <div class="page subpage" id="page-deposit">
+      <div class="back-row" onclick="goto('page-profile')">← Back to profile</div>
+      <h2>Deposit</h2>
+      <p class="subhead">Send your deposit via Telegram, then message our team to confirm.</p>
+      <div class="card">
+        <div class="mi-title">Deposit contact</div>
+        <div class="telegram-box">
+          <div class="handle">@paidnpr</div>
+          <button class="copy-btn" onclick="copyHandle()">Copy</button>
+        </div>
+        <div class="note-box">Message this Telegram username with your Player ID and the amount you'd like to deposit. Funds are added to your wallet once confirmed by the organizer.</div>
+      </div>
+    </div>
+
+    <!-- WITHDRAW -->
+    <div class="page subpage" id="page-withdraw">
+      <div class="back-row" onclick="goto('page-profile')">← Back to profile</div>
+      <h2>Withdraw</h2>
+      <p class="subhead">Cash out your balance.</p>
+
+      <div id="withdraw-locked" class="hidden">
+        <div class="locked-banner">🔒 Withdrawals are locked until you complete KYC verification.</div>
+        <button class="primary-btn" onclick="goto('page-settings')">Complete KYC</button>
+      </div>
+
+      <div id="withdraw-open" class="card hidden">
+        <div class="field"><label>Amount</label><input id="withdraw-amount" type="number" placeholder="Enter amount"></div>
+        <div class="error-msg" id="withdraw-error">Please enter a valid amount.</div>
+        <button class="primary-btn" id="withdraw-confirm-btn" onclick="confirmWithdraw()">Confirm withdrawal</button>
+
+        <div class="code-reveal hidden" id="withdraw-code-box">
+          <div style="font-size:12.5px;color:var(--text-dim);font-weight:700;">YOUR WITHDRAWAL CODE</div>
+          <div class="code" id="withdraw-code">ABCDE</div>
+          <div style="font-size:13px;color:var(--text-dim);">Give this code to the organizer to complete your withdrawal.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUPPORT -->
+    <div class="page subpage" id="page-support">
+      <div class="back-row" onclick="goto('page-profile')">← Back to profile</div>
+      <h2>Customer support</h2>
+      <p class="subhead">Chat with our team. Once your issue is resolved, the chat is deleted automatically.</p>
+      <div class="card" style="display:flex; flex-direction:column; height:420px;">
+        <div id="support-empty" class="empty-note" style="text-align:center; margin:auto;">Start a conversation below.</div>
+        <div id="support-chat-body" class="hidden" style="display:flex; flex-direction:column; height:100%;">
+          <div class="history-list" id="support-messages" style="flex:1; overflow-y:auto; gap:8px;"></div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:12px;">
+          <input id="support-input" placeholder="Describe your issue…" style="flex:1;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;">
+          <button class="copy-btn" onclick="sendSupportMessage()">Send</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="bottom-nav">
+    <div class="bottom-nav-inner">
+      <button class="nav-btn active" data-page="page-home" onclick="goto('page-home')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+        Home
+      </button>
+      <button class="nav-btn" data-page="page-tournaments" onclick="goto('page-tournaments')" style="position:relative;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 01-10 0V4z"/><path d="M7 6H4a3 3 0 003 3M17 6h3a3 3 0 01-3 3"/></svg>
+        Tournaments
+        <span id="tournament-badge" class="hidden" style="position:absolute; top:2px; right:22%; width:8px; height:8px; border-radius:50%; background:var(--red);"></span>
+      </button>
+      <button class="nav-btn" data-page="page-history" onclick="goto('page-history')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        History
+      </button>
+      <button class="nav-btn" data-page="page-profile" onclick="goto('page-profile')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+        Profile
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- supabase client ---------------- */
+const SUPABASE_URL = 'https://ndtwhvzhlmewlufxyyyb.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_m_3Tc9WAxT7uzzY9O0Sqsw_PAwgs1o0';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentProfile = null;   // { id(uuid), player_id, name, email, theme, kyc_verified }
+let currentRoom = null;      // { id, code, seats, current_turn, last_roll }
+let roomChannel = null;
+
+/* ---------------- captcha ---------------- */
+let captchaVerified = false;
+function runCaptcha(){
+  if(captchaVerified) return;
+  const box = document.getElementById('captcha-check');
+  const label = document.getElementById('captcha-label');
+  box.classList.add('checking');
+  label.textContent = 'Verifying…';
+  setTimeout(()=>{
+    box.classList.remove('checking');
+    box.classList.add('done');
+    label.textContent = "Verified — you're human";
+    captchaVerified = true;
+  }, 900);
+}
+
+/* ---------------- login / signup ---------------- */
+function showSignup(){
+  document.getElementById('form-login').classList.add('hidden');
+  document.getElementById('form-signup').classList.remove('hidden');
+}
+function showLogin(){
+  document.getElementById('form-signup').classList.add('hidden');
+  document.getElementById('form-login').classList.remove('hidden');
+}
+
+async function handleSignup(){
+  const name = document.getElementById('signup-name').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const pass = document.getElementById('signup-password').value;
+  const err = document.getElementById('signup-error');
+  if(!name || !email || !pass){ err.textContent='Please fill in every field.'; err.style.display='block'; return; }
+
+  const btn = event.target; btn.disabled = true; btn.textContent = 'Creating account…';
+  const { data, error } = await sb.auth.signUp({
+    email, password: pass, options: { data: { name } }
+  });
+  btn.disabled = false; btn.textContent = 'Create account';
+
+  if(error){ err.textContent = error.message; err.style.display='block'; return; }
+  err.style.display='none';
+
+  if(data.session){
+    await loginFlow();
+  } else {
+    // email confirmation is turned on for this project
+    err.style.color = 'var(--teal)';
+    err.textContent = 'Account created! Check your email to confirm it, then log in.';
+    err.style.display='block';
+    showLogin();
+  }
+}
+
+async function handleLogin(){
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-password').value;
+  const err = document.getElementById('login-error');
+  if(!email || !pass || !captchaVerified){
+    err.textContent = 'Please fill in your email, password and confirm the captcha.';
+    err.style.display='block'; return;
+  }
+
+  const btn = event.target; btn.disabled = true; btn.textContent = 'Logging in…';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'Log in with Email';
+
+  if(error){ err.textContent = error.message; err.style.display='block'; return; }
+  err.style.display='none';
+  await loginFlow();
+}
+
+async function loginFlow(){
+  const { data:{ user } } = await sb.auth.getUser();
+  if(!user) return;
+  const { data: profile, error } = await sb.from('profiles').select('*').eq('id', user.id).single();
+  if(error || !profile){
+    document.getElementById('login-error').textContent = 'Could not load your profile — try again.';
+    document.getElementById('login-error').style.display='block';
+    return;
+  }
+  if(profile.blocked){
+    document.getElementById('login-error').textContent = 'This account has been blocked. Contact support for help.';
+    document.getElementById('login-error').style.display='block';
+    await sb.auth.signOut();
+    return;
+  }
+  currentProfile = profile;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').classList.add('active');
+  loadUserIntoApp();
+  await renderHistory();
+  startHeartbeat();
+  subscribeToProfile();
+  checkTournamentBadge();
+  goto('page-home');
+}
+
+function startHeartbeat(){
+  const beat = async () => {
+    if(!currentProfile) return;
+    await sb.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', currentProfile.id);
+  };
+  beat();
+  setInterval(beat, 45000);
+}
+
+/* ---------------- profile ---------------- */
+function loadUserIntoApp(){
+  const p = currentProfile;
+  if(!p) return;
+  document.getElementById('topbar-uid').textContent = 'ID ' + p.player_id;
+  document.getElementById('topbar-balance').textContent = 'Rs ' + Number(p.balance||0).toLocaleString();
+  document.getElementById('profile-uid').textContent = 'ID ' + p.player_id;
+  document.getElementById('profile-name').textContent = p.name || 'Player';
+  document.getElementById('profile-avatar').textContent = (p.name||'P').trim().charAt(0).toUpperCase();
+  updateKycUI(p);
+  setTheme(p.theme || 'dark', false);
+}
+
+function updateKycUI(p){
+  const pill = document.getElementById('kyc-pill');
+  const sub = document.getElementById('withdraw-sub');
+  if(p.kyc_verified){
+    pill.textContent = '● KYC verified';
+    pill.classList.remove('no'); pill.classList.add('yes');
+    sub.textContent = 'Cash out your winnings';
+    document.getElementById('kyc-form-wrap').classList.add('hidden');
+    document.getElementById('kyc-done-wrap').classList.remove('hidden');
+  } else {
+    pill.textContent = '● KYC not verified';
+    pill.classList.remove('yes'); pill.classList.add('no');
+    sub.textContent = 'Locked — complete KYC first';
+    document.getElementById('kyc-form-wrap').classList.remove('hidden');
+    document.getElementById('kyc-done-wrap').classList.add('hidden');
+  }
+}
+
+async function submitKyc(){
+  const surname = document.getElementById('kyc-surname').value.trim();
+  const lastname = document.getElementById('kyc-lastname').value.trim();
+  const age = document.getElementById('kyc-age').value.trim();
+  const location = document.getElementById('kyc-location').value.trim();
+  const doc = document.getElementById('kyc-doc').value.trim();
+  const err = document.getElementById('kyc-error');
+  if(!surname || !lastname || !age || !location || !doc){ err.style.display='block'; return; }
+  err.style.display='none';
+
+  const uid = currentProfile.id;
+  const { error: kycErr } = await sb.from('kyc_submissions').insert({
+    user_id: uid, surname, last_name: lastname, age: Number(age), location, document_number: doc
+  });
+  if(kycErr){ err.textContent = kycErr.message; err.style.display='block'; return; }
+
+  const { data: updated, error: upErr } = await sb.from('profiles')
+    .update({ kyc_verified: true }).eq('id', uid).select().single();
+  if(upErr){ err.textContent = upErr.message; err.style.display='block'; return; }
+
+  currentProfile = updated;
+  updateKycUI(currentProfile);
+  addHistoryEvent('✅','KYC verification approved', null);
+}
+
+/* ---------------- theme ---------------- */
+async function setTheme(theme, persist=true){
+  document.documentElement.setAttribute('data-theme', theme);
+  document.querySelectorAll('.theme-swatch').forEach(el=>{
+    el.classList.toggle('active', el.dataset.theme===theme);
+  });
+  if(persist && currentProfile){
+    currentProfile.theme = theme;
+    const { data, error } = await sb.from('profiles').update({ theme }).eq('id', currentProfile.id).select().single();
+    if(!error) currentProfile = data;
+  }
+}
+
+/* ---------------- navigation ---------------- */
+function goto(pageId){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.page===pageId ||
+      (['page-settings','page-deposit','page-withdraw','page-support'].includes(pageId) && b.dataset.page==='page-profile'));
+  });
+  if(pageId==='page-withdraw'){
+    const verified = currentProfile && currentProfile.kyc_verified;
+    document.getElementById('withdraw-locked').classList.toggle('hidden', !!verified);
+    document.getElementById('withdraw-open').classList.toggle('hidden', !verified);
+    document.getElementById('withdraw-code-box').classList.add('hidden');
+    document.getElementById('withdraw-amount').value = '';
+    document.getElementById('withdraw-confirm-btn').disabled = false;
+  }
+  if(pageId==='page-tournaments') renderTournaments();
+  if(pageId==='page-support') renderSupport();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function goHome(){ goto('page-home'); }
+
+/* ---------------- live wallet balance ---------------- */
+function subscribeToProfile(){
+  if(!currentProfile) return;
+  sb.channel('profile-'+currentProfile.id)
+    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'profiles', filter:`id=eq.${currentProfile.id}` },
+      (payload) => { currentProfile = payload.new; loadUserIntoApp(); })
+    .subscribe();
+}
+
+/* ---------------- deposit / withdraw ---------------- */
+function copyHandle(){
+  navigator.clipboard?.writeText('@paidnpr');
+  const btn = event.target; const old = btn.textContent;
+  btn.textContent = 'Copied!'; setTimeout(()=>btn.textContent=old, 1200);
+}
+function copyRoom(){
+  const code = document.getElementById('room-code').textContent;
+  navigator.clipboard?.writeText(code);
+  const btn = event.target; const old = btn.textContent;
+  btn.textContent = 'Copied!'; setTimeout(()=>btn.textContent=old, 1200);
+}
+function randomCode(len=5){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let out='';
+  for(let i=0;i<len;i++) out += chars[Math.floor(Math.random()*chars.length)];
+  return out;
+}
+async function confirmWithdraw(){
+  const amt = document.getElementById('withdraw-amount').value;
+  const err = document.getElementById('withdraw-error');
+  if(!amt || Number(amt)<=0){ err.style.display='block'; return; }
+  err.style.display='none';
+  const code = randomCode(5);
+
+  const { error } = await sb.from('withdrawals').insert({
+    user_id: currentProfile.id, amount: Number(amt), code
+  });
+  if(error){ err.textContent = error.message; err.style.display='block'; return; }
+
+  document.getElementById('withdraw-code').textContent = code;
+  document.getElementById('withdraw-code-box').classList.remove('hidden');
+  document.getElementById('withdraw-confirm-btn').disabled = true;
+  addHistoryEvent('➖','Withdrawal requested — code '+code, -Number(amt));
+}
+
+/* ---------------- history ---------------- */
+async function addHistoryEvent(icon, title, amount){
+  if(!currentProfile) return;
+  await sb.from('history').insert({ user_id: currentProfile.id, icon, title, amount });
+  renderHistory();
+}
+function fmtDay(ts){
+  const d = new Date(ts);
+  const days = Math.floor((Date.now()-ts)/86400000);
+  if(days<=0) return 'Today';
+  if(days===1) return 'Yesterday';
+  return d.toLocaleDateString(undefined,{weekday:'long', month:'short', day:'numeric'});
+}
+function fmtTime(ts){
+  return new Date(ts).toLocaleTimeString(undefined,{hour:'2-digit', minute:'2-digit'});
+}
+async function renderHistory(){
+  if(!currentProfile) return;
+  const cutoff = new Date(Date.now() - 5*86400000).toISOString();
+  const { data: recent, error } = await sb.from('history')
+    .select('*').eq('user_id', currentProfile.id)
+    .gte('created_at', cutoff).order('created_at', {ascending:false});
+
+  const wrap = document.getElementById('history-list');
+  wrap.innerHTML = '';
+  if(error){ wrap.innerHTML = '<div class="card">Could not load history.</div>'; return; }
+  if(!recent || recent.length===0){
+    wrap.innerHTML = '<div class="card empty-state"><div class="emoji">🕐</div><div class="msg">No activity in the last 5 days yet — go play a game!</div></div>';
+    return;
+  }
+  let lastLabel = null;
+  recent.forEach(e=>{
+    const ts = new Date(e.created_at).getTime();
+    const label = fmtDay(ts);
+    if(label !== lastLabel){
+      const lab = document.createElement('div');
+      lab.className='history-day-label';
+      lab.textContent = label;
+      wrap.appendChild(lab);
+      lastLabel = label;
+    }
+    const row = document.createElement('div');
+    row.className='history-item';
+    let amountHtml = '';
+    if(e.amount !== null && e.amount !== undefined){
+      const cls = e.amount>=0 ? 'amt-pos':'amt-neg';
+      amountHtml = `<div class="hi-amount ${cls}">${e.amount>=0?'+':''}${e.amount}</div>`;
+    }
+    row.innerHTML = `<div class="hi-icon" style="background:var(--panel-2)">${e.icon||'•'}</div>
+      <div class="hi-body"><div class="hi-title">${e.title}</div><div class="hi-time">${fmtTime(ts)}</div></div>
+      ${amountHtml}`;
+    wrap.appendChild(row);
+  });
+}
+
+/* ---------------- ludo — real, cross-device rooms ---------------- */
+const seatMeta = [
+  {label:'You',           color:'#ff5d73'},
+  {label:'Green player',  color:'#2ee6c5'},
+  {label:'Yellow player', color:'#f2b134'},
+  {label:'Blue player',   color:'#7c9cff'}
+];
+
+async function openLudo(){
+  const code = 'TT-' + Math.floor(1000+Math.random()*9000);
+  const seats = [ { uid: currentProfile.id, name: currentProfile.name }, null, null, null ];
+  const { data, error } = await sb.from('ludo_rooms').insert({ code, seats }).select().single();
+  if(error){ alert('Could not create room: '+error.message); return; }
+  currentRoom = data;
+  subscribeToRoom(data.id);
+  document.getElementById('room-code').textContent = data.code;
+  renderSeats();
+  goto('page-ludo');
+}
+
+async function joinRoomByCode(){
+  const codeInput = document.getElementById('join-code-input');
+  const code = codeInput.value.trim().toUpperCase();
+  if(!code) return;
+  const { data: room, error } = await sb.from('ludo_rooms').select('*').eq('code', code).single();
+  if(error || !room){ alert('No room found with that code.'); return; }
+
+  const seats = room.seats.slice();
+  const already = seats.findIndex(s => s && s.uid === currentProfile.id);
+  if(already === -1){
+    const openSeat = seats.findIndex(s => s === null);
+    if(openSeat === -1){ alert('That room is full.'); return; }
+    seats[openSeat] = { uid: currentProfile.id, name: currentProfile.name };
+    const { data: updated, error: upErr } = await sb.from('ludo_rooms')
+      .update({ seats, updated_at: new Date().toISOString() }).eq('id', room.id).select().single();
+    if(upErr){ alert('Could not join: '+upErr.message); return; }
+    currentRoom = updated;
+  } else {
+    currentRoom = room;
+  }
+  subscribeToRoom(currentRoom.id);
+  document.getElementById('room-code').textContent = currentRoom.code;
+  renderSeats();
+  goto('page-ludo');
+}
+
+function subscribeToRoom(roomId){
+  if(roomChannel){ sb.removeChannel(roomChannel); roomChannel = null; }
+  roomChannel = sb.channel('room-'+roomId)
+    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'ludo_rooms', filter:`id=eq.${roomId}` },
+      (payload) => { currentRoom = payload.new; renderSeats(); })
+    .subscribe();
+}
+
+function renderSeats(){
+  if(!currentRoom) return;
+  const seatEls = document.querySelectorAll('#page-ludo .seat');
+  currentRoom.seats.forEach((s, i) => {
+    const el = seatEls[i];
+    el.classList.remove('empty','you');
+    if(!s){
+      el.classList.add('empty');
+      el.innerHTML = `<div class="dot" style="background:${seatMeta[i].color};"></div>Empty`;
+    } else {
+      const isYou = s.uid === currentProfile.id;
+      if(isYou) el.classList.add('you');
+      el.innerHTML = `<div class="dot" style="background:${seatMeta[i].color};"></div>${isYou ? 'You' : (s.name||'Player')}`;
+    }
+  });
+
+  const mySeat = currentRoom.seats.findIndex(s => s && s.uid === currentProfile.id);
+  const isMyTurn = mySeat !== -1 && currentRoom.current_turn === mySeat;
+  const status = document.getElementById('turn-status');
+  const diceBtn = document.getElementById('dice-btn');
+  if(currentRoom.last_roll){
+    document.getElementById('dice-result').textContent = ['⚀','⚁','⚂','⚃','⚄','⚅'][currentRoom.last_roll-1];
+  }
+  if(mySeat === -1){
+    status.textContent = 'Spectating this room.';
+    diceBtn.disabled = true;
+  } else if(isMyTurn){
+    status.textContent = 'Your turn — roll the dice';
+    diceBtn.disabled = false;
+  } else {
+    const turnName = (currentRoom.seats[currentRoom.current_turn]||{}).name || seatMeta[currentRoom.current_turn].label;
+    status.textContent = `Waiting for ${turnName} to roll…`;
+    diceBtn.disabled = true;
+  }
+}
+
+async function rollDice(){
+  if(!currentRoom) return;
+  const val = 1 + Math.floor(Math.random()*6);
+  const nextTurn = (currentRoom.current_turn + 1) % 4;
+  const { data, error } = await sb.from('ludo_rooms')
+    .update({ last_roll: val, current_turn: nextTurn, updated_at: new Date().toISOString() })
+    .eq('id', currentRoom.id).select().single();
+  if(error) return;
+  currentRoom = data;
+  renderSeats();
+  addHistoryEvent('🎲', 'Rolled a '+val+' in Ludo (room '+currentRoom.code+')', null);
+}
+
+/* ---------------- tournaments ---------------- */
+async function checkTournamentBadge(){
+  const { data } = await sb.from('tournaments').select('id').eq('status','registration_open');
+  document.getElementById('tournament-badge').classList.toggle('hidden', !(data && data.length));
+}
+
+async function renderTournaments(){
+  const wrap = document.getElementById('tournaments-wrap');
+  const { data: tournaments } = await sb.from('tournaments').select('*')
+    .in('status', ['upcoming','registration_open','ongoing','completed']).order('created_at',{ascending:false});
+  if(!tournaments || tournaments.length===0){
+    wrap.innerHTML = '<div class="card empty-state"><div class="emoji">🏆</div><div class="msg">No tournaments right now — check back soon.</div></div>';
+    return;
+  }
+  const { data: myRegs } = await sb.from('tournament_registrations').select('*').eq('user_id', currentProfile.id);
+  const regMap = {}; (myRegs||[]).forEach(r => regMap[r.tournament_id] = r);
+
+  const cards = await Promise.all(tournaments.map(async t => {
+    const reg = regMap[t.id];
+    let matchHtml = '';
+    if(reg && reg.status==='confirmed'){
+      const { data: matches } = await sb.from('tournament_matches').select('*').eq('tournament_id', t.id)
+        .or(`p1_id.eq.${currentProfile.id},p2_id.eq.${currentProfile.id},p3_id.eq.${currentProfile.id},p4_id.eq.${currentProfile.id}`);
+      if(matches && matches.length){
+        const m = matches[0];
+        const myColor = m.p1_id===currentProfile.id?m.p1_color : m.p2_id===currentProfile.id?m.p2_color : m.p3_id===currentProfile.id?m.p3_color : m.p4_color;
+        matchHtml = `<div class="note-box" style="margin-top:10px;">🎮 You're placed in Round ${m.round}, Match ${m.match_number} — your colour: <b>${myColor}</b>. ${m.status==='completed' ? (m.winner_id===currentProfile.id ? '🏆 You won this match!' : 'Match complete.') : 'Await your match time.'}</div>`;
+      }
+    }
+    let statusPill = '';
+    let actionHtml = '';
+    if(!reg){
+      statusPill = `<span class="tag">${t.status==='registration_open'?'Registration open':t.status.replace('_',' ')}</span>`;
+      actionHtml = t.status==='registration_open'
+        ? `<button class="play-btn primary" onclick="registerForTournament('${t.id}')">Register — free entry</button>`
+        : `<button class="play-btn" disabled>Not open yet</button>`;
+    } else if(reg.status==='pending'){
+      statusPill = `<span class="tag live">Registered — awaiting confirmation</span>`;
+    } else if(reg.status==='confirmed'){
+      statusPill = `<span class="tag live">Confirmed ✓</span>`;
+    } else {
+      statusPill = `<span class="tag" style="color:var(--red);">Registration not accepted</span>`;
+    }
+    return `
+      <div class="card">
+        ${t.banner_url ? `<div class="tournament-banner-wrap"><img src="${t.banner_url}"></div>` : ''}
+        <h3 style="margin:0 0 4px;">${t.title}</h3>
+        <p style="color:var(--text-dim); font-size:13px; margin:0 0 8px;">${t.description||''}</p>
+        <div class="tag-row" style="margin-bottom:10px;">
+          ${statusPill}
+          <span class="tag">Prize: Rs ${Number(t.prize_amount).toLocaleString()}</span>
+          ${t.start_time ? `<span class="tag">Starts ${new Date(t.start_time).toLocaleString()}</span>` : ''}
+        </div>
+        ${actionHtml}
+        ${matchHtml}
+      </div>`;
+  }));
+  wrap.innerHTML = cards.join('');
+  checkTournamentBadge();
+}
+
+async function registerForTournament(tid){
+  const { error } = await sb.from('tournament_registrations').insert({ tournament_id: tid, user_id: currentProfile.id });
+  if(error){ alert(error.message.includes('duplicate') ? 'You already registered for this tournament.' : error.message); return; }
+  addHistoryEvent('🏆','Registered for a tournament', null);
+  renderTournaments();
+}
+
+/* ---------------- support chat ---------------- */
+let mySupportChatId = null;
+let supportChannel = null;
+
+async function renderSupport(){
+  const { data } = await sb.from('support_chats').select('*').eq('user_id', currentProfile.id).eq('status','open').order('created_at',{ascending:false}).limit(1).maybeSingle();
+  mySupportChatId = data ? data.id : null;
+  document.getElementById('support-empty').classList.toggle('hidden', !!mySupportChatId);
+  document.getElementById('support-chat-body').classList.toggle('hidden', !mySupportChatId);
+  if(mySupportChatId){
+    await renderSupportMessages();
+    if(supportChannel) sb.removeChannel(supportChannel);
+    supportChannel = sb.channel('support-'+mySupportChatId)
+      .on('postgres_changes', { event:'INSERT', schema:'public', table:'support_messages', filter:`chat_id=eq.${mySupportChatId}` }, renderSupportMessages)
+      .subscribe();
+  }
+}
+async function renderSupportMessages(){
+  if(!mySupportChatId) return;
+  const { data } = await sb.from('support_messages').select('*').eq('chat_id', mySupportChatId).order('created_at',{ascending:true});
+  const wrap = document.getElementById('support-messages');
+  wrap.innerHTML = (data||[]).map(m => `
+    <div class="history-item" style="background:${m.sender==='admin' ? 'var(--panel-2)' : 'var(--panel)'};">
+      <div class="hi-body"><div class="hi-title">${m.sender==='admin' ? '🛡️ Support' : 'You'}</div><div class="hi-time">${m.body}</div></div>
+    </div>`).join('');
+  wrap.scrollTop = wrap.scrollHeight;
+}
+async function sendSupportMessage(){
+  const input = document.getElementById('support-input');
+  const body = input.value.trim();
+  if(!body) return;
+  if(!mySupportChatId){
+    const { data, error } = await sb.from('support_chats').insert({ user_id: currentProfile.id, subject: body.slice(0,60) }).select().single();
+    if(error){ alert(error.message); return; }
+    mySupportChatId = data.id;
+    document.getElementById('support-empty').classList.add('hidden');
+    document.getElementById('support-chat-body').classList.remove('hidden');
+  }
+  await sb.from('support_messages').insert({ chat_id: mySupportChatId, sender:'player', body });
+  input.value = '';
+  renderSupportMessages();
+  if(!supportChannel){
+    supportChannel = sb.channel('support-'+mySupportChatId)
+      .on('postgres_changes', { event:'INSERT', schema:'public', table:'support_messages', filter:`chat_id=eq.${mySupportChatId}` }, renderSupportMessages)
+      .subscribe();
+  }
+}
+
+/* ---------------- snake & ladder — real, cross-device rooms ---------------- */
+const SL_LADDERS = {2:38, 7:14, 8:31, 15:26, 21:42, 28:84, 36:44, 51:67, 71:91, 78:98};
+const SL_SNAKES  = {16:6, 46:25, 49:11, 62:19, 64:60, 74:53, 89:68, 92:88, 95:75, 99:58};
+const slSeatColors = ['#ff5d73','#2ee6c5','#f2b134','#7c9cff'];
+let currentSlRoom = null;
+let slRoomChannel = null;
+let slBoardBuilt = false;
+
+function buildSlBoard(){
+  const board = document.getElementById('sl-board');
+  board.innerHTML = '';
+  // classic boustrophedon numbering: bottom row is 1-10 left-to-right, next row right-to-left, etc.
+  for(let row=9; row>=0; row--){
+    const leftToRight = (9-row) % 2 === 0;
+    for(let col=0; col<10; col++){
+      const c = leftToRight ? col : 9-col;
+      const num = row*10 + c + 1;
+      const cell = document.createElement('div');
+      cell.className = 'sl-cell' + ((row+col)%2===1 ? ' alt' : '');
+      cell.dataset.num = num;
+      cell.innerHTML = `<span>${num}</span>`;
+      if(SL_LADDERS[num]){ cell.classList.add('ladder'); cell.innerHTML += `<span class="icon">🪜</span>`; }
+      if(SL_SNAKES[num]){ cell.classList.add('snake'); cell.innerHTML += `<span class="icon">🐍</span>`; }
+      board.appendChild(cell);
+    }
+  }
+  slBoardBuilt = true;
+}
+
+function slCellCenter(num){
+  if(num<=0) return {left:'-14%', top:'92%'}; // off-board start
+  const idx = num-1;
+  const row = Math.floor(idx/10);
+  const leftToRight = row % 2 === 0;
+  let col = idx % 10;
+  if(!leftToRight) col = 9-col;
+  const left = (col + 0.5) * 10;
+  const top = (9-row + 0.5) * 10;
+  return { left: left+'%', top: top+'%' };
+}
+
+async function openSnake(){
+  if(!slBoardBuilt) buildSlBoard();
+  const code = 'TT-' + Math.floor(1000+Math.random()*9000);
+  const seats = [ { uid: currentProfile.id, name: currentProfile.name }, null, null, null ];
+  const { data, error } = await sb.from('snake_rooms').insert({ code, seats }).select().single();
+  if(error){ alert('Could not create room: '+error.message); return; }
+  currentSlRoom = data;
+  subscribeToSlRoom(data.id);
+  document.getElementById('sl-room-code').textContent = data.code;
+  renderSlRoom();
+  goto('page-snake');
+}
+async function joinSlRoomByCode(){
+  if(!slBoardBuilt) buildSlBoard();
+  const codeInput = document.getElementById('sl-join-code-input');
+  const code = codeInput.value.trim().toUpperCase();
+  if(!code) return;
+  const { data: room, error } = await sb.from('snake_rooms').select('*').eq('code', code).single();
+  if(error || !room){ alert('No room found with that code.'); return; }
+  const seats = room.seats.slice();
+  const already = seats.findIndex(s => s && s.uid === currentProfile.id);
+  if(already === -1){
+    const openSeat = seats.findIndex(s => s === null);
+    if(openSeat === -1){ alert('That room is full.'); return; }
+    seats[openSeat] = { uid: currentProfile.id, name: currentProfile.name };
+    const { data: updated, error: upErr } = await sb.from('snake_rooms')
+      .update({ seats, updated_at: new Date().toISOString() }).eq('id', room.id).select().single();
+    if(upErr){ alert('Could not join: '+upErr.message); return; }
+    currentSlRoom = updated;
+  } else {
+    currentSlRoom = room;
+  }
+  subscribeToSlRoom(currentSlRoom.id);
+  document.getElementById('sl-room-code').textContent = currentSlRoom.code;
+  renderSlRoom();
+  goto('page-snake');
+}
+function subscribeToSlRoom(roomId){
+  if(slRoomChannel){ sb.removeChannel(slRoomChannel); slRoomChannel = null; }
+  slRoomChannel = sb.channel('sl-room-'+roomId)
+    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'snake_rooms', filter:`id=eq.${roomId}` },
+      (payload) => { currentSlRoom = payload.new; renderSlRoom(); })
+    .subscribe();
+}
+function copySlRoom(){
+  const code = document.getElementById('sl-room-code').textContent;
+  navigator.clipboard?.writeText(code);
+  const btn = event.target; const old = btn.textContent;
+  btn.textContent = 'Copied!'; setTimeout(()=>btn.textContent=old, 1200);
+}
+
+function renderSlRoom(){
+  if(!currentSlRoom) return;
+  const seatEls = document.querySelectorAll('#sl-seats .seat');
+  currentSlRoom.seats.forEach((s,i)=>{
+    const el = seatEls[i];
+    el.classList.remove('empty','you');
+    if(!s){ el.classList.add('empty'); el.innerHTML = `<div class="dot" style="background:${slSeatColors[i]};"></div>Empty`; }
+    else{
+      const isYou = s.uid === currentProfile.id;
+      if(isYou) el.classList.add('you');
+      el.innerHTML = `<div class="dot" style="background:${slSeatColors[i]};"></div>${isYou?'You':(s.name||'Player')}`;
+    }
+  });
+
+  // tokens
+  document.querySelectorAll('.sl-token').forEach(t=>t.remove());
+  const board = document.getElementById('sl-board');
+  currentSlRoom.positions.forEach((pos,i)=>{
+    if(!currentSlRoom.seats[i]) return;
+    const { left, top } = slCellCenter(pos);
+    const tok = document.createElement('div');
+    tok.className = 'sl-token';
+    tok.style.background = slSeatColors[i];
+    tok.style.left = `calc(${left} - 4.5%)`;
+    tok.style.top = `calc(${top} - 4.5%)`;
+    tok.style.marginLeft = (i%2===0? '-4px':'4px');
+    tok.style.marginTop = (i<2? '-4px':'4px');
+    board.appendChild(tok);
+  });
+
+  const mySeat = currentSlRoom.seats.findIndex(s=>s && s.uid===currentProfile.id);
+  const isMyTurn = mySeat !== -1 && currentSlRoom.current_turn === mySeat;
+  const status = document.getElementById('sl-turn-status');
+  const btn = document.getElementById('sl-dice-btn');
+  if(currentSlRoom.last_roll){
+    document.getElementById('sl-dice-result').textContent = ['⚀','⚁','⚂','⚃','⚄','⚅'][currentSlRoom.last_roll-1];
+  }
+  if(currentSlRoom.winner_seat !== null && currentSlRoom.winner_seat !== undefined){
+    const w = currentSlRoom.seats[currentSlRoom.winner_seat];
+    status.textContent = (w && w.uid===currentProfile.id) ? '🏆 You reached square 100 — you win!' : `🏆 ${w?w.name:'A player'} reached square 100 and won.`;
+    btn.disabled = true;
+  } else if(mySeat === -1){
+    status.textContent = 'Spectating this room.'; btn.disabled = true;
+  } else if(isMyTurn){
+    status.textContent = 'Your turn — roll the dice'; btn.disabled = false;
+  } else {
+    const name = (currentSlRoom.seats[currentSlRoom.current_turn]||{}).name || 'the next player';
+    status.textContent = `Waiting for ${name} to roll…`; btn.disabled = true;
+  }
+}
+
+async function rollSlDice(){
+  if(!currentSlRoom) return;
+  const mySeat = currentSlRoom.seats.findIndex(s=>s && s.uid===currentProfile.id);
+  if(mySeat !== currentSlRoom.current_turn) return;
+
+  const val = 1 + Math.floor(Math.random()*6);
+  const positions = currentSlRoom.positions.slice();
+  let newPos = positions[mySeat] + val;
+  if(newPos > 100) newPos = positions[mySeat]; // must roll exact — stay put on overshoot
+  else if(SL_LADDERS[newPos]) newPos = SL_LADDERS[newPos];
+  else if(SL_SNAKES[newPos]) newPos = SL_SNAKES[newPos];
+  positions[mySeat] = newPos;
+
+  let nextTurn = currentSlRoom.current_turn;
+  const seatCount = currentSlRoom.seats.length;
+  do { nextTurn = (nextTurn+1) % seatCount; } while(!currentSlRoom.seats[nextTurn] && nextTurn !== currentSlRoom.current_turn);
+
+  const winner = newPos === 100 ? mySeat : (currentSlRoom.winner_seat ?? null);
+
+  const { data, error } = await sb.from('snake_rooms').update({
+    positions, last_roll: val, current_turn: nextTurn, winner_seat: winner, updated_at: new Date().toISOString()
+  }).eq('id', currentSlRoom.id).select().single();
+  if(error) return;
+  currentSlRoom = data;
+  renderSlRoom();
+  addHistoryEvent('🐍', 'Rolled a '+val+' in Snake & Ladder (room '+currentSlRoom.code+')', null);
+  if(winner===mySeat) addHistoryEvent('🏆', 'Won a Snake & Ladder match', null);
+}
+
+/* ---------------- boot ---------------- */
+(async function boot(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session){
+    await loginFlow();
+  }
+})();
+</script>
+</body>
+</html>

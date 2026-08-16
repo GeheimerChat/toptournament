@@ -671,7 +671,7 @@ function renderLudo(){
   }).join('');
 
   const ludoActive = [0,1,2,3].filter(i => i < (ludoRoom.player_count || 4));
-  moveDieToSeat('ludo-die', ludoRoom.current_turn, LUDO_COLORS, ludoActive);
+  moveDieToSeat('ludo-die', ludoRoom.current_turn, LUDO_COLORS, ludoActive, DIE_SLOTS_LUDO);
 
   // --- tokens --- elements persist so they glide square to square
   const occupancy = new Map();
@@ -693,7 +693,9 @@ function renderLudo(){
         tok = document.createElement('button');
         tok.id = id;
         tok.className = 'lu-token';
+        tok.style.color = LUDO_COLORS[seat];
         tok.style.setProperty('--c', LUDO_COLORS[seat]);
+        tok.innerHTML = pawnSVG();
         board.appendChild(tok);
       }
 
@@ -726,6 +728,18 @@ function renderLudo(){
   dieEl.style.setProperty('--c', LUDO_COLORS[ludoRoom.current_turn]);
 
   const myRank = placed.indexOf(mySeat);
+  const seated = ludoRoom.seats.filter((s,i) => s && i < ludoRoom.player_count).length;
+  const waitingForPlayers = seated < ludoRoom.player_count;
+
+  if(waitingForPlayers && !ludoRoom.game_over){
+    status.innerHTML = `<span class="waiting-note">⏳ Waiting for players — <b>${seated}/${ludoRoom.player_count}</b> seated.<br>Share code <b>${ludoRoom.code}</b> to start.</span>`;
+    rollBtn.disabled = true;
+    dieEl.classList.remove('my-turn');
+    dieEl.classList.add('waiting');
+    dieEl.onclick = null;
+    document.getElementById('ludo-event').textContent = ludoRoom.last_event || '';
+    return;
+  }
 
   if(ludoRoom.game_over){
     const podium = placed.map((seat, n) =>
@@ -857,6 +871,8 @@ function copyRoom(){
 
 async function rollLudoDice(){
   if(ludoBusy || !ludoRoom) return;
+  const seatedNow = ludoRoom.seats.filter((s,i) => s && i < ludoRoom.player_count).length;
+  if(seatedNow < ludoRoom.player_count) return;   // table not full yet
   const mySeat = ludoSeatOf(ludoRoom);
   if(mySeat !== ludoRoom.current_turn || ludoRoom.dice_rolled) return;
 
@@ -1532,7 +1548,7 @@ function renderSl(){
 
     if(pos === 0){
       tray.insertAdjacentHTML('beforeend',
-        `<span class="sl-tray-token" style="--c:${SL_COLORS[seat]}" title="${SL_NAMES[seat]} — not started"></span>`);
+        `<span class="sl-tray-token" style="color:${SL_COLORS[seat]};--c:${SL_COLORS[seat]}" title="${SL_NAMES[seat]} — not started">${pawnSVG()}</span>`);
       return;
     }
 
@@ -1543,7 +1559,9 @@ function renderSl(){
       tok = document.createElement('span');
       tok.id = id;
       tok.className = 'sl-token';
+      tok.style.color = SL_COLORS[seat];
       tok.style.setProperty('--c', SL_COLORS[seat]);
+      tok.innerHTML = pawnSVG();
       layer.appendChild(tok);
     }
 
@@ -1567,12 +1585,23 @@ function renderSl(){
   const status = document.getElementById('sl-status');
 
   const slActive = [0,1,2,3].filter(i => i < (slRoom.player_count || 4));
-  moveDieToSeat('sl-die', slRoom.current_turn, SL_COLORS, slActive);
+  moveDieToSeat('sl-die', slRoom.current_turn, SL_COLORS, slActive, DIE_SLOTS_SNAKE);
 
   if(!die.classList.contains('rolling')){
     setDieFace(die, slRoom.last_roll || 1);
   }
   die.style.setProperty('--c', SL_COLORS[slRoom.current_turn] || '#888');
+
+  const seatedSl = slRoom.seats.filter((s,i) => s && i < slRoom.player_count).length;
+  if(seatedSl < slRoom.player_count && !gameOver){
+    status.innerHTML = `<span class="waiting-note">⏳ Waiting for players — <b>${seatedSl}/${slRoom.player_count}</b> seated.<br>Share code <b>${slRoom.code}</b> to start.</span>`;
+    btn.disabled = true;
+    die.classList.remove('my-turn');
+    die.classList.add('waiting');
+    die.onclick = null;
+    document.getElementById('sl-event').textContent = slRoom.last_event || '';
+    return;
+  }
 
   if(gameOver){
     const winner = slRoom.seats[finished[0]];
@@ -1685,6 +1714,8 @@ function copySlRoom(){
 
 async function rollSlDice(){
   if(slBusy || !slRoom) return;
+  const seatedNow = slRoom.seats.filter((s,i) => s && i < slRoom.player_count).length;
+  if(seatedNow < slRoom.player_count) return;     // table not full yet
   const mySeat = slSeatOf(slRoom);
   if(mySeat !== slRoom.current_turn) return;
   if(slRoom.positions[mySeat] === 100) return;
@@ -2418,35 +2449,59 @@ async function applySlStateInner(room){
    Corner order matches the seats: 0 top-left, 1 top-right,
    2 bottom-right, 3 bottom-left.
 ------------------------------------------------------------------- */
-const DIE_SLOTS = [
-  { left:'0%',   top:'0%'   },
-  { left:'100%', top:'0%'   },
-  { left:'100%', top:'100%' },
-  { left:'0%',   top:'100%' }
+/* Resting spots, expressed as a percentage INSIDE the board so the die
+   never hangs over the edge. Ludo drops it into the colour's base;
+   Snake & Ladder tucks it into the matching corner square. */
+const DIE_SLOTS_LUDO = [
+  { left:'20%', top:'20%' },
+  { left:'80%', top:'20%' },
+  { left:'80%', top:'80%' },
+  { left:'20%', top:'80%' }
+];
+const DIE_SLOTS_SNAKE = [
+  { left:'11%', top:'11%' },
+  { left:'89%', top:'11%' },
+  { left:'89%', top:'89%' },
+  { left:'11%', top:'89%' }
 ];
 
-function moveDieToSeat(dieId, seat, colors, activeSeats){
+function moveDieToSeat(dieId, seat, colors, activeSeats, slots){
   const die = document.getElementById(dieId);
   if(!die) return;
   const frame = die.closest('.board-frame');
-  const slot = DIE_SLOTS[seat] || DIE_SLOTS[0];
+  const table = slots || DIE_SLOTS_LUDO;
+  const spot = table[seat] || table[0];
 
-  die.style.left = slot.left;
-  die.style.top  = slot.top;
-  die.style.marginLeft = '';
-  die.style.marginTop  = '';
+  die.style.left = spot.left;
+  die.style.top  = spot.top;
   die.style.setProperty('--c', (colors || [])[seat] || 'var(--gold)');
 
-  // light up the tray that currently holds the die, hide unused colours
   if(frame){
     frame.querySelectorAll('.die-tray').forEach(t => {
       const s = Number(t.dataset.seat);
       const inPlay = !activeSeats || activeSeats.includes(s);
+      const p = table[s] || table[0];
+      t.style.left = p.left;
+      t.style.top  = p.top;
       t.classList.toggle('hidden-seat', !inPlay);
       t.classList.toggle('holding', s === seat);
       t.classList.toggle('inactive', s !== seat);
     });
   }
+}
+
+/* A proper pawn, drawn as SVG so it stays crisp at any size.
+   Everything is painted from `currentColor`, so a single style setting
+   colours the whole piece and there are no gradient-id collisions. */
+function pawnSVG(){
+  return `<svg viewBox="0 0 40 48" aria-hidden="true">
+    <ellipse class="pw-shadow" cx="20" cy="44.5" rx="13" ry="3.2"/>
+    <path class="pw-body" d="M7.5 43.5c0-7.4 7.4-10.2 9.2-16.6-4.6-2.4-4.6-8.6 0-11-2.6-3.6-.7-8.9 3.3-8.9s5.9 5.3 3.3 8.9c4.6 2.4 4.6 8.6 0 11 1.8 6.4 9.2 9.2 9.2 16.6z"/>
+    <circle class="pw-head" cx="20" cy="10.5" r="5.6"/>
+    <path class="pw-shade" d="M20 7v36.5h12.5c0-7.4-7.4-10.2-9.2-16.6 4.6-2.4 4.6-8.6 0-11 2.6-3.6.7-8.9-3.3-8.9z"/>
+    <ellipse class="pw-gloss" cx="16.6" cy="8.6" rx="2.1" ry="2.7"/>
+    <path class="pw-rim" d="M7.5 43.5h25" />
+  </svg>`;
 }
 
 /* ---------------- boot ----------------

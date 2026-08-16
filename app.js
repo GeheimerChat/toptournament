@@ -639,6 +639,7 @@ function buildLudoBoard(){
 /* Draw tokens, dice, seat cards and turn state from the current room row. */
 function renderLudo(){
   if(!ludoRoom) return;
+  if(handleCancellation('ludo', ludoRoom)) return;
   if(!ludoBoardBuilt) buildLudoBoard();
 
   const board = document.getElementById('ludo-board');
@@ -758,6 +759,7 @@ async function openLudo(){
   ludoRoom = data;
   subscribeLudo(data.id);
   document.getElementById('ludo-room-code').textContent = data.code;
+  attachChat('ludo', data.id);
   buildLudoBoard();
   renderLudo();
   goto('page-ludo');
@@ -793,6 +795,7 @@ async function joinRoomByCode(){
   ludoRoom = target;
   subscribeLudo(target.id);
   document.getElementById('ludo-room-code').textContent = target.code;
+  attachChat('ludo', target.id);
   buildLudoBoard();
   renderLudo();
   goto('page-ludo');
@@ -1023,6 +1026,8 @@ function renderTTT(){
   const boardEl = document.getElementById('ttt-board');
   if(!boardEl) return;
 
+  if(tttMode === 'online' && tttRoom && handleCancellation('ttt', tttRoom)) return;
+
   const online = tttMode === 'online';
   const board  = online && tttRoom ? tttRoom.board  : tttBoard;
   const winner = online && tttRoom ? tttRoom.winner : tttWinner;
@@ -1103,6 +1108,8 @@ function tttStartSolo(){
   tttMode = 'solo';
   if(tttChannel){ sb.removeChannel(tttChannel); tttChannel = null; }
   tttRoom = null;
+  detachChat();
+  document.getElementById('ttt-chat-dock')?.classList.add('hidden');
   tttResetRound(true);
   goto('page-ttt');
 }
@@ -1190,6 +1197,7 @@ async function tttCreateRoom(){
   tttRoom = data;
   subscribeTTT(data.id);
   document.getElementById('ttt-room-code').textContent = data.code;
+  attachChat('ttt', data.id);
   renderTTT();
   goto('page-ttt');
 }
@@ -1217,6 +1225,7 @@ async function tttJoinRoom(){
   tttRoom = target;
   subscribeTTT(target.id);
   document.getElementById('ttt-room-code').textContent = target.code;
+  attachChat('ttt', target.id);
   renderTTT();
   goto('page-ttt');
 }
@@ -1430,6 +1439,7 @@ function slSeatOf(room){
 
 function renderSl(){
   if(!slRoom) return;
+  if(handleCancellation('snake', slRoom)) return;
   if(!slBuilt) buildSlBoard();
 
   const mySeat = slSeatOf(slRoom);
@@ -1532,6 +1542,7 @@ async function openSnake(){
   slRoom = data;
   subscribeSl(data.id);
   document.getElementById('sl-room-code').textContent = data.code;
+  attachChat('snake', data.id);
   buildSlBoard();
   renderSl();
   goto('page-snake');
@@ -1562,6 +1573,7 @@ async function joinSlRoomByCode(){
   slRoom = target;
   subscribeSl(target.id);
   document.getElementById('sl-room-code').textContent = target.code;
+  attachChat('snake', target.id);
   buildSlBoard();
   renderSl();
   goto('page-snake');
@@ -1973,10 +1985,167 @@ function renderStakeNotice(){
   }
 }
 
+/* ---------------- room helpers ---------------- */
+
+/* Pull the wallet balance again after any money movement. */
+async function refreshBalance(){
+  if(!currentProfile) return;
+  const { data } = await sb.from('profiles').select('*').eq('id', currentProfile.id).maybeSingle();
+  if(data){ currentProfile = data; loadUserIntoApp(); }
+}
+
+function detachRoom(game){
+  if(game === 'ludo'){ if(ludoChannel) sb.removeChannel(ludoChannel); ludoChannel = null; ludoRoom = null; }
+  if(game === 'snake'){ if(slChannel) sb.removeChannel(slChannel); slChannel = null; slRoom = null; }
+  if(game === 'ttt'){ if(tttChannel) sb.removeChannel(tttChannel); tttChannel = null; tttRoom = null; }
+}
+
+/* When someone else cancels, everyone still on the page is told once. */
+const cancelSeen = new Set();
+function handleCancellation(game, room){
+  if(!room || !room.cancelled) return false;
+  if(cancelSeen.has(room.id)) return true;
+  cancelSeen.add(room.id);
+
+  refreshBalance();
+  const stake = Number(room.stake || 0);
+  setTimeout(() => {
+    alert(stake > 0
+      ? `${room.last_event || 'The table was cancelled.'}\n\nRs ${stake} has been returned to your wallet. No fee was charged.`
+      : (room.last_event || 'The table was cancelled.'));
+    detachRoom(game);
+    goHome();
+  }, 60);
+  return true;
+}
+
+/* =====================================================================
+   IN-ROOM CHAT
+   Messages float up the left side of the board and fade out after ten
+   seconds, like a live-stream chat. Nothing is permanent: the overlay
+   only ever holds the last few messages, and the server clears anything
+   older than an hour.
+   ===================================================================== */
+
+const CHAT_TTL   = 10000;   // how long a message stays on screen
+const CHAT_MAX   = 6;       // most messages visible at once
+const CHAT_LIMIT = 200;     // characters
+
+/* Canned lines, so players can talk without typing mid-game. */
+const CHAT_QUICK = ['👋 Hi!', '😄 Nice move', '🔥 Good game', '⏳ Your turn', '😅 Oops', '🎲 Lucky!'];
+
+let chatRoom = null;        // { game, roomId }
+let chatChannelRoom = null;
+let chatSeen = new Set();
+
+/* Colours match the seat colours so you can tell who's talking. */
+function chatSeatColor(game, seat){
+  if(seat == null) return 'var(--text-dim)';
+  if(game === 'ttt') return seat === 0 ? '#f2557a' : '#37c9e8';
+  return (typeof LUDO_COLORS !== 'undefined' ? LUDO_COLORS : ['#e6455c','#1faa72','#f0b429','#3f7fd8'])[seat] || '#888';
+}
+
+/* Point the chat at a room and start listening. */
+function attachChat(game, roomId){
+  if(chatRoom && chatRoom.roomId === roomId) return;
+  detachChat();
+  chatRoom = { game, roomId };
+  chatSeen = new Set();
+
+  chatChannelRoom = sb.channel('roomchat-' + roomId)
+    .on('postgres_changes',
+        { event:'INSERT', schema:'public', table:'room_messages', filter:`room_id=eq.${roomId}` },
+        payload => showChatMessage(payload.new))
+    .subscribe();
+
+  document.querySelectorAll('.chat-dock').forEach(d => d.classList.remove('hidden'));
+}
+
+function detachChat(){
+  if(chatChannelRoom) sb.removeChannel(chatChannelRoom);
+  chatChannelRoom = null;
+  chatRoom = null;
+  document.querySelectorAll('.chat-stream').forEach(s => s.innerHTML = '');
+}
+
+/* Which seat is this player in, for colour and name. */
+function chatMySeat(game){
+  const room = game === 'ludo' ? ludoRoom : game === 'snake' ? slRoom : tttRoom;
+  if(!room || !currentProfile) return null;
+  const i = (room.seats || []).findIndex(s => s && s.uid === currentProfile.id);
+  return i < 0 ? null : i;
+}
+
+async function sendChat(game, preset){
+  const input = document.getElementById(game + '-chat-input');
+  const body = (preset || (input ? input.value : '')).trim();
+  if(!body) return;
+
+  const room = game === 'ludo' ? ludoRoom : game === 'snake' ? slRoom : tttRoom;
+  if(!room || !currentProfile) return;
+
+  if(input && !preset) input.value = '';
+
+  const { error } = await sb.from('room_messages').insert({
+    game, room_id: room.id, user_id: currentProfile.id,
+    seat: chatMySeat(game), body: body.slice(0, CHAT_LIMIT)
+  });
+  if(error) console.warn('chat:', error.message);
+}
+
+/* Drop a message onto the overlay and schedule its fade-out. */
+function showChatMessage(m){
+  if(!m || chatSeen.has(m.id)) return;
+  chatSeen.add(m.id);
+
+  const stream = document.getElementById((m.game || (chatRoom||{}).game) + '-chat-stream');
+  if(!stream) return;
+
+  const mine = currentProfile && m.user_id === currentProfile.id;
+  const room = m.game === 'ludo' ? ludoRoom : m.game === 'snake' ? slRoom : tttRoom;
+  const seatName = room && room.seats && room.seats[m.seat] ? room.seats[m.seat].name : 'Player';
+
+  const el = document.createElement('div');
+  el.className = 'chat-bubble' + (mine ? ' mine' : '');
+  el.style.setProperty('--sc', chatSeatColor(m.game, m.seat));
+  el.innerHTML = `<span class="chat-who">${escapeHtml(mine ? 'You' : seatName)}</span>` +
+                 `<span class="chat-body">${escapeHtml(m.body)}</span>`;
+  stream.appendChild(el);
+
+  // keep the overlay short
+  while(stream.children.length > CHAT_MAX) stream.removeChild(stream.firstChild);
+
+  setTimeout(() => {
+    el.classList.add('leaving');
+    setTimeout(() => el.remove(), 400);
+  }, CHAT_TTL);
+}
+
+/* The dock markup is identical for all three games. */
+function chatDockHTML(game){
+  return `
+    <div class="chat-dock hidden" id="${game}-chat-dock">
+      <div class="chat-quick">
+        ${CHAT_QUICK.map(q => `<button type="button" onclick="sendChat('${game}', '${q.replace(/'/g,"\\'")}')">${q}</button>`).join('')}
+      </div>
+      <div class="chat-compose">
+        <input id="${game}-chat-input" maxlength="${CHAT_LIMIT}" placeholder="Say something…" autocomplete="off"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();sendChat('${game}');}">
+        <button type="button" onclick="sendChat('${game}')">Send</button>
+      </div>
+    </div>`;
+}
+
 /* ---------------- boot ----------------
    Runs last, after every other script has defined its functions.
 ---------------------------------------------------------------- */
 (async function boot(){
+  // build the chat docks for each game page
+  ['ludo','snake','ttt'].forEach(g => {
+    const mount = document.getElementById(g + '-chat-mount');
+    if(mount) mount.innerHTML = chatDockHTML(g);
+  });
+
   const { data:{ session } } = await sb.auth.getSession();
   if(session){
     await loginFlow();

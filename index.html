@@ -221,9 +221,10 @@
         <button class="copy-btn" onclick="joinRoomByCode()">Join</button>
       </div>
 
-      <div class="ludo-stage">
+      <div class="ludo-stage stage-rel">
         <div class="pot-banner" id="ludo-pot"></div>
         <div class="lu-seats" id="ludo-seats"></div>
+        <div class="chat-stream" id="ludo-chat-stream"></div>
         <div class="lu-board" id="ludo-board"></div>
         <div class="lu-controls">
           <div class="lu-die" id="ludo-die">🎲</div>
@@ -231,6 +232,7 @@
         </div>
         <div class="lu-status" id="ludo-status">Create or join a table to begin.</div>
         <div class="lu-event" id="ludo-event"></div>
+        <div id="ludo-chat-mount"></div>
       </div>
     </div>
 
@@ -240,7 +242,7 @@
       <h2>Tic-Tac-Toe</h2>
       <p class="subhead">Three in a row wins. Play the computer, or a friend on another device.</p>
 
-      <div class="ttt-stage">
+      <div class="ttt-stage stage-rel">
         <div class="ttt-mode-row">
           <button class="copy-btn" onclick="tttStartSolo()">🤖 vs Computer</button>
           <button class="copy-btn" onclick="tttCreateRoom()">🔗 Create online room</button>
@@ -271,8 +273,10 @@
 
         <div class="pot-banner" id="ttt-pot"></div>
         <div class="ttt-scores" id="ttt-scores"></div>
+        <div class="chat-stream" id="ttt-chat-stream"></div>
         <div class="ttt-board" id="ttt-board"></div>
         <div class="ttt-status" id="ttt-status">Your turn.</div>
+        <div id="ttt-chat-mount"></div>
         <div class="ttt-actions">
           <button class="ttt-again hidden" id="ttt-again" onclick="tttPlayAgain()">Play again</button>
         </div>
@@ -297,9 +301,10 @@
         <button class="copy-btn" onclick="joinSlRoomByCode()">Join</button>
       </div>
 
-      <div class="sl-stage">
+      <div class="sl-stage stage-rel">
         <div class="pot-banner" id="sl-pot"></div>
         <div class="lu-seats" id="sl-seats"></div>
+        <div class="chat-stream" id="snake-chat-stream"></div>
         <div class="sl-board">
           <div class="sl-grid" id="sl-grid"></div>
           <svg class="sl-art" id="sl-art" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
@@ -312,6 +317,7 @@
         </div>
         <div class="lu-status" id="sl-status">Create or join a board to begin.</div>
         <div class="lu-event" id="sl-event"></div>
+        <div id="snake-chat-mount"></div>
       </div>
     </div>
 

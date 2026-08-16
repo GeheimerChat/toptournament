@@ -562,10 +562,14 @@ function ludoApplyMove(tokens, seat, tokenIndex, roll){
 }
 
 /* Next seat that actually has a player in it. */
-function ludoNextSeat(room, from){
-  for(let step = 1; step <= 4; step++){
-    const s = (from + step) % 4;
-    if(room.seats[s]) return s;
+function ludoNextSeat(room, from, tokens){
+  const t = tokens || room.tokens;
+  const count = room.player_count || 4;
+  for(let step = 1; step <= count; step++){
+    const s = (from + step) % count;
+    if(!room.seats[s]) continue;
+    const done = (t[s] || []).every(p => p === 56);   // already placed
+    if(!done) return s;
   }
   return from;
 }
@@ -650,17 +654,23 @@ function renderLudo(){
   // --- seats ---
   renderPot('ludo-pot', ludoRoom.stake || 0, ludoRoom.seats.filter(Boolean).length);
 
+  const placed = ludoRoom.finished_order || [];
+  const MEDAL = ['🥇','🥈','🥉','🏁'];
+
   const seatWrap = document.getElementById('ludo-seats');
   seatWrap.innerHTML = ludoRoom.seats.map((s, i) => {
     if(i >= ludoRoom.player_count) return '';
     const home = (ludoRoom.tokens[i] || []).filter(p => p === 56).length;
-    const active = ludoRoom.current_turn === i;
-    return `<div class="lu-seat ${active ? 'active' : ''} ${s ? '' : 'empty'}" style="--c:${LUDO_COLORS[i]}">
+    const rank = placed.indexOf(i);
+    const active = ludoRoom.current_turn === i && rank < 0 && !ludoRoom.game_over;
+    return `<div class="lu-seat ${active ? 'active' : ''} ${s ? '' : 'empty'} ${rank >= 0 ? 'placed' : ''}" style="--c:${LUDO_COLORS[i]}">
       <span class="lu-seat-dot"></span>
       <span class="lu-seat-name">${s ? (s.uid === (currentProfile||{}).id ? 'You' : s.name) : 'Waiting…'}</span>
-      <span class="lu-seat-home">${home}/4</span>
+      <span class="lu-seat-home">${rank >= 0 ? MEDAL[rank] : home + '/4'}</span>
     </div>`;
   }).join('');
+
+  moveDieToSeat('ludo-die', ludoRoom.current_turn, LUDO_COLORS);
 
   // --- tokens ---
   board.querySelectorAll('.lu-token').forEach(t => t.remove());
@@ -669,6 +679,7 @@ function renderLudo(){
   for(let seat = 0; seat < 4; seat++){
     if(!ludoRoom.seats[seat]) continue;
     (ludoRoom.tokens[seat] || []).forEach((pos, i) => {
+      if(ludoOverride && ludoOverride.seat === seat && ludoOverride.idx === i) pos = ludoOverride.pos;
       const [r, c] = ludoCell(seat, pos, i);
       const key = r+','+c;
       const stack = occupancy.get(key) || 0;
@@ -699,16 +710,24 @@ function renderLudo(){
   const rollBtn = document.getElementById('ludo-roll-btn');
   const status = document.getElementById('ludo-status');
 
-  dieEl.textContent = ludoRoom.last_roll ? LUDO_DIE[ludoRoom.last_roll - 1] : '🎲';
+  if(!dieEl.classList.contains('rolling')){
+    dieEl.textContent = ludoRoom.last_roll ? LUDO_DIE[ludoRoom.last_roll - 1] : '🎲';
+  }
   dieEl.style.setProperty('--c', LUDO_COLORS[ludoRoom.current_turn]);
 
-  if(ludoRoom.winner_seat !== null && ludoRoom.winner_seat !== undefined){
-    const w = ludoRoom.seats[ludoRoom.winner_seat];
-    status.textContent = (w && w.uid === currentProfile.id)
-      ? '🏆 All four tokens home — you win!'
-      : `🏆 ${w ? w.name : LUDO_NAMES[ludoRoom.winner_seat]} won the game.`;
+  const myRank = placed.indexOf(mySeat);
+
+  if(ludoRoom.game_over){
+    const podium = placed.map((seat, n) =>
+      `${MEDAL[n]} ${ludoRoom.seats[seat] ? (ludoRoom.seats[seat].uid === currentProfile.id ? 'You' : ludoRoom.seats[seat].name) : LUDO_NAMES[seat]}`
+    ).join('   ');
+    status.innerHTML = `<span class="lu-podium">${podium}</span>`;
     rollBtn.disabled = true;
     rollBtn.textContent = 'Game over';
+  } else if(myRank >= 0){
+    status.textContent = `${MEDAL[myRank]} You finished ${['1st','2nd','3rd','4th'][myRank]} — the game continues for the other places.`;
+    rollBtn.disabled = true;
+    rollBtn.textContent = 'Finished';
   } else if(mySeat === -1){
     status.textContent = 'Spectating this table.';
     rollBtn.disabled = true;
@@ -722,10 +741,13 @@ function renderLudo(){
     rollBtn.disabled = true;
     rollBtn.textContent = 'Pick a token';
   } else {
-    status.textContent = 'Your turn — roll the dice.';
+    status.textContent = 'Your turn — tap the dice.';
     rollBtn.disabled = false;
     rollBtn.textContent = 'Roll dice';
   }
+
+  dieEl.classList.toggle('my-turn', isMyTurn && !ludoRoom.dice_rolled && !ludoRoom.game_over);
+  dieEl.onclick = (isMyTurn && !ludoRoom.dice_rolled && !ludoRoom.game_over) ? rollLudoDice : null;
 
   if(ludoRoom.last_event){
     document.getElementById('ludo-event').textContent = ludoRoom.last_event;
@@ -760,6 +782,7 @@ async function openLudo(){
   subscribeLudo(data.id);
   document.getElementById('ludo-room-code').textContent = data.code;
   attachChat('ludo', data.id);
+  ludoPrevTokens = data.tokens.map(r => r.slice());
   buildLudoBoard();
   renderLudo();
   goto('page-ludo');
@@ -796,6 +819,7 @@ async function joinRoomByCode(){
   subscribeLudo(target.id);
   document.getElementById('ludo-room-code').textContent = target.code;
   attachChat('ludo', target.id);
+  ludoPrevTokens = target.tokens.map(r => r.slice());
   buildLudoBoard();
   renderLudo();
   goto('page-ludo');
@@ -805,7 +829,7 @@ function subscribeLudo(roomId){
   if(ludoChannel) sb.removeChannel(ludoChannel);
   ludoChannel = sb.channel('ludo-'+roomId)
     .on('postgres_changes', { event:'UPDATE', schema:'public', table:'ludo_rooms', filter:`id=eq.${roomId}` },
-      payload => { ludoRoom = payload.new; renderLudo(); })
+      payload => { applyLudoState(payload.new); })
     .subscribe();
 }
 
@@ -825,8 +849,6 @@ async function rollLudoDice(){
   if(mySeat !== ludoRoom.current_turn || ludoRoom.dice_rolled) return;
 
   ludoBusy = true;
-  document.getElementById('ludo-die').classList.add('rolling');
-
   const roll = 1 + Math.floor(Math.random() * 6);
   const sixes = roll === 6 ? (ludoRoom.consecutive_sixes || 0) + 1 : 0;
 
@@ -838,7 +860,6 @@ async function rollLudoDice(){
       last_event: 'Three sixes in a row — turn forfeited.'
     });
     ludoBusy = false;
-    document.getElementById('ludo-die').classList.remove('rolling');
     return;
   }
 
@@ -853,7 +874,6 @@ async function rollLudoDice(){
         last_event: `Rolled ${roll} — no legal move, turn passes.`
       });
       ludoBusy = false;
-      document.getElementById('ludo-die').classList.remove('rolling');
     }, 550);
     return;
   }
@@ -864,7 +884,6 @@ async function rollLudoDice(){
       last_event: `Rolled ${roll}.`
     });
     ludoBusy = false;
-    document.getElementById('ludo-die').classList.remove('rolling');
   }, 550);
 }
 
@@ -876,15 +895,16 @@ async function ludoMove(tokenIndex){
 
   ludoBusy = true;
   const roll = ludoRoom.last_roll;
-  const { tokens, captured, finished } = ludoApplyMove(ludoRoom.tokens, mySeat, tokenIndex, roll);
+  const { tokens, captured, finished: tokenHomed } = ludoApplyMove(ludoRoom.tokens, mySeat, tokenIndex, roll);
 
   const allHome = tokens[mySeat].every(p => p === 56);
   // a six, a capture, or getting a token home all earn another turn
-  const extraTurn = (roll === 6 || captured || finished) && !allHome;
+  const extraTurn = (roll === 6 || captured || tokenHomed) && !allHome;
+  void extraTurn;
 
   let event = `${LUDO_NAMES[mySeat]} moved ${roll}.`;
   if(captured) event = `${LUDO_NAMES[mySeat]} captured a token — extra turn!`;
-  else if(finished) event = `${LUDO_NAMES[mySeat]} brought a token home — extra turn!`;
+  else if(tokenHomed) event = `${LUDO_NAMES[mySeat]} brought a token home — extra turn!`;
   else if(roll === 6) event = `${LUDO_NAMES[mySeat]} rolled a six — extra turn!`;
 
   const patch = {
@@ -892,20 +912,47 @@ async function ludoMove(tokenIndex){
     dice_rolled: false,
     movable: [],
     last_event: event,
-    current_turn: extraTurn ? mySeat : ludoNextSeat(ludoRoom, mySeat),
+    current_turn: extraTurn ? mySeat : ludoNextSeat(ludoRoom, mySeat, tokens),
     consecutive_sixes: extraTurn && roll === 6 ? (ludoRoom.consecutive_sixes || 0) : 0
   };
 
-  if(allHome){
-    patch.winner_seat = mySeat;
-    patch.last_event = `🏆 ${LUDO_NAMES[mySeat]} brought all four tokens home!`;
+  const finished = (ludoRoom.finished_order || []).slice();
+  const isFirstPlace = allHome && finished.length === 0;
+
+  if(allHome && !finished.includes(mySeat)){
+    finished.push(mySeat);
+    patch.finished_order = finished;
+
+    const place = finished.length;                     // 1st, 2nd, 3rd...
+    const label = ['1st','2nd','3rd','4th'][place - 1];
+    patch.last_event = `${['🥇','🥈','🥉','🏁'][place - 1]} ${LUDO_NAMES[mySeat]} finished ${label}!`;
+
+    if(place === 1) patch.winner_seat = mySeat;
+
+    // the board is done once only one player is left unplaced
+    const active = ludoRoom.seats.filter((s, i) => s && i < (ludoRoom.player_count || 4)).length;
+    if(finished.length >= active - 1){
+      patch.game_over = true;
+      const last = [0,1,2,3].find(i => ludoRoom.seats[i] && i < (ludoRoom.player_count||4) && !finished.includes(i));
+      if(last != null) finished.push(last);
+      patch.finished_order = finished;
+      patch.last_event += ' Game over.';
+    } else {
+      // hand the turn on — a finished player takes no more turns
+      patch.current_turn = ludoNextSeat(ludoRoom, mySeat, tokens);
+    }
   }
 
   await ludoUpdate(patch);
 
-  if(allHome){
+  if(isFirstPlace){
     const result = await settleGame('ludo', ludoRoom.id, currentProfile.id, mySeat, LUDO_NAMES[mySeat]);
-    if(result && result.payout) alert(`You won! Rs ${result.payout} has been credited to your wallet.`);
+    if(result && result.payout){
+      alert(`🥇 First place! Rs ${result.payout} has been credited to your wallet.\n\nThe game continues so the other places can be decided.`);
+    }
+  } else if(allHome){
+    const place = (ludoRoom.finished_order || []).indexOf(mySeat) + 1;
+    if(place > 1) alert(`You finished ${['','1st','2nd','3rd','4th'][place]}. The prize goes to first place only.`);
   }
   ludoBusy = false;
 }
@@ -915,8 +962,7 @@ async function ludoUpdate(patch){
   const { data, error } = await sb.from('ludo_rooms')
     .update(patch).eq('id', ludoRoom.id).select().single();
   if(error){ console.warn('ludo update:', error.message); return; }
-  ludoRoom = data;
-  renderLudo();
+  await applyLudoState(data);
 }
 
 /* =====================================================================
@@ -1470,6 +1516,7 @@ function renderSl(){
 
   slRoom.positions.forEach((pos, seat) => {
     if(seat >= slRoom.player_count || !slRoom.seats[seat]) return;
+    if(slOverride && slOverride.seat === seat) pos = slOverride.pos;
 
     if(pos === 0){
       tray.insertAdjacentHTML('beforeend',
@@ -1490,7 +1537,11 @@ function renderSl(){
   const btn = document.getElementById('sl-roll-btn');
   const status = document.getElementById('sl-status');
 
-  die.textContent = slRoom.last_roll ? SL_DIE[slRoom.last_roll - 1] : '🎲';
+  moveDieToSeat('sl-die', slRoom.current_turn, SL_COLORS);
+
+  if(!die.classList.contains('rolling')){
+    die.textContent = slRoom.last_roll ? SL_DIE[slRoom.last_roll - 1] : '🎲';
+  }
   die.style.setProperty('--c', SL_COLORS[slRoom.current_turn] || '#888');
 
   if(gameOver){
@@ -1506,13 +1557,17 @@ function renderSl(){
     status.textContent = 'You already finished — waiting for the others.';
     btn.disabled = true;
   } else if(isMyTurn){
-    status.textContent = 'Your turn — roll the dice.';
+    status.textContent = 'Your turn — tap the dice.';
     btn.disabled = false; btn.textContent = 'Roll dice';
   } else {
     const t = slRoom.seats[slRoom.current_turn];
     status.textContent = `${SL_NAMES[slRoom.current_turn]}'s turn — waiting for ${t ? t.name : 'player'}…`;
     btn.disabled = true; btn.textContent = 'Roll dice';
   }
+
+  const canRollSl = isMyTurn && !gameOver;
+  die.classList.toggle('my-turn', canRollSl);
+  die.onclick = canRollSl ? rollSlDice : null;
 
   document.getElementById('sl-event').textContent = slRoom.last_event || '';
 }
@@ -1543,6 +1598,7 @@ async function openSnake(){
   subscribeSl(data.id);
   document.getElementById('sl-room-code').textContent = data.code;
   attachChat('snake', data.id);
+  slPrevPositions = data.positions.slice();
   buildSlBoard();
   renderSl();
   goto('page-snake');
@@ -1574,6 +1630,7 @@ async function joinSlRoomByCode(){
   subscribeSl(target.id);
   document.getElementById('sl-room-code').textContent = target.code;
   attachChat('snake', target.id);
+  slPrevPositions = target.positions.slice();
   buildSlBoard();
   renderSl();
   goto('page-snake');
@@ -1583,7 +1640,7 @@ function subscribeSl(roomId){
   if(slChannel) sb.removeChannel(slChannel);
   slChannel = sb.channel('sl-'+roomId)
     .on('postgres_changes', { event:'UPDATE', schema:'public', table:'snake_rooms', filter:`id=eq.${roomId}` },
-      payload => { slRoom = payload.new; renderSl(); })
+      payload => { applySlState(payload.new); })
     .subscribe();
 }
 
@@ -1602,8 +1659,6 @@ async function rollSlDice(){
   if(slRoom.positions[mySeat] === 100) return;
 
   slBusy = true;
-  document.getElementById('sl-die').classList.add('rolling');
-
   const roll = 1 + Math.floor(Math.random() * 6);
   const from = slRoom.positions[mySeat];
   const result = slResolveMove(from, roll);
@@ -1636,9 +1691,8 @@ async function rollSlDice(){
       updated_at: new Date().toISOString()
     }).eq('id', slRoom.id).select().single();
 
-    if(!error){ slRoom = data; renderSl(); }
+    if(!error){ await applySlState(data); }
     slBusy = false;
-    document.getElementById('sl-die').classList.remove('rolling');
 
     if(justWonFirst){
       const res = await settleGame('snake', slRoom.id, currentProfile.id, mySeat, SL_NAMES[mySeat]);
@@ -2134,6 +2188,189 @@ function chatDockHTML(game){
         <button type="button" onclick="sendChat('${game}')">Send</button>
       </div>
     </div>`;
+}
+
+/* =====================================================================
+   ANIMATION
+   Two jobs:
+     • The die tumbles through random faces before settling on its result.
+     • Tokens walk their squares one at a time (200ms a step) instead of
+       teleporting, so everyone can follow what happened.
+   The database still only ever stores the final position — all of this
+   is replayed locally from the difference between the old and new state,
+   which means spectators and opponents see the same walk.
+   ===================================================================== */
+
+const STEP_MS = 200;    // one square
+const DIE_MS  = 520;    // how long the die tumbles
+
+const DIE_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+/* Tumble a die element, then land on `face` (1-6). */
+function spinDie(el, face){
+  if(!el) return Promise.resolve();
+  el.classList.add('rolling');
+  const started = Date.now();
+
+  return new Promise(resolve => {
+    const flick = setInterval(() => {
+      el.textContent = DIE_FACES[Math.floor(Math.random() * 6)];
+      if(Date.now() - started >= DIE_MS){
+        clearInterval(flick);
+        el.classList.remove('rolling');
+        el.textContent = DIE_FACES[(face || 1) - 1];
+        el.classList.add('settle');
+        setTimeout(() => el.classList.remove('settle'), 320);
+        resolve();
+      }
+    }, 55);
+  });
+}
+
+/* ---------- Ludo ---------- */
+
+let ludoPrevTokens = null;
+let ludoOverride   = null;   // { seat, idx, pos } drawn instead of the stored value
+let ludoAnimating  = false;
+
+/* Find the single token that advanced between two snapshots. */
+function findLudoStep(prev, next){
+  if(!prev) return null;
+  for(let s = 0; s < 4; s++){
+    for(let i = 0; i < 4; i++){
+      const a = prev[s][i], b = next[s][i];
+      if(a === b) continue;
+      if(a >= 0 && b > a) return { seat:s, idx:i, from:a, to:b };  // walked forward
+      if(a < 0 && b === 0) return { seat:s, idx:i, from:0, to:0 }; // came out of base
+    }
+  }
+  return null;
+}
+
+async function animateLudoStep(step){
+  ludoAnimating = true;
+  for(let p = step.from + 1; p <= step.to; p++){
+    ludoOverride = { seat:step.seat, idx:step.idx, pos:p };
+    renderLudo();
+    await wait(STEP_MS);
+  }
+  ludoOverride = null;
+  ludoAnimating = false;
+  renderLudo();
+}
+
+/* Every Ludo state change goes through here so the walk always plays. */
+async function applyLudoState(room){
+  const prev = ludoPrevTokens;
+  const rollChanged = ludoRoom && room.last_roll !== ludoRoom.last_roll;
+  ludoRoom = room;
+
+  if(rollChanged && room.last_roll){
+    await spinDie(document.getElementById('ludo-die'), room.last_roll);
+  }
+
+  const step = findLudoStep(prev, room.tokens);
+  ludoPrevTokens = room.tokens.map(r => r.slice());
+
+  if(step && step.to > step.from){
+    await animateLudoStep(step);
+  } else {
+    renderLudo();
+  }
+}
+
+/* ---------- Snake & Ladder ---------- */
+
+let slPrevPositions = null;
+let slOverride      = null;   // { seat, pos }
+let slAnimating     = false;
+
+async function animateSlMove(seat, from, roll, finalPos){
+  slAnimating = true;
+
+  // an overshoot leaves the token exactly where it was — nothing to walk
+  if(finalPos === from && from + roll > 100){
+    slOverride = null;
+    slAnimating = false;
+    renderSl();
+    return;
+  }
+
+  // walk the plain squares first
+  const landed = Math.min(from + roll, 100);
+  if(landed > from){
+    for(let p = from + 1; p <= landed; p++){
+      slOverride = { seat, pos:p };
+      renderSl();
+      await wait(STEP_MS);
+    }
+  }
+
+  // then, if a snake or ladder was hit, show the ride separately
+  if(finalPos !== landed){
+    await wait(260);
+    const climbing = finalPos > landed;
+    const board = document.querySelector('.sl-board');
+    if(board) board.classList.add(climbing ? 'climbing' : 'sliding');
+    slOverride = { seat, pos:finalPos };
+    renderSl();
+    await wait(700);
+    if(board) board.classList.remove('climbing','sliding');
+  }
+
+  slOverride = null;
+  slAnimating = false;
+  renderSl();
+}
+
+async function applySlState(room){
+  const prev = slPrevPositions;
+  const rollChanged = slRoom && room.last_roll !== slRoom.last_roll;
+  const prevRoom = slRoom;
+  slRoom = room;
+
+  if(rollChanged && room.last_roll){
+    await spinDie(document.getElementById('sl-die'), room.last_roll);
+  }
+
+  let moved = null;
+  if(prev){
+    for(let s = 0; s < room.positions.length; s++){
+      if(prev[s] !== room.positions[s]){ moved = { seat:s, from:prev[s], to:room.positions[s] }; break; }
+    }
+  }
+  slPrevPositions = room.positions.slice();
+
+  if(moved && room.last_roll){
+    await animateSlMove(moved.seat, moved.from, room.last_roll, moved.to);
+  } else {
+    renderSl();
+  }
+}
+
+/* ---------------- the travelling die ----------------
+   One die element per game. Rather than sitting in a fixed spot, it
+   glides to whichever colour's corner is currently on turn, so it's
+   always obvious whose roll it is.
+   Corner order matches the seats: 0 top-left, 1 top-right,
+   2 bottom-right, 3 bottom-left.
+------------------------------------------------------------------- */
+const DIE_SLOTS = [
+  { left:'-2%',  top:'-2%'  },
+  { left:'102%', top:'-2%'  },
+  { left:'102%', top:'102%' },
+  { left:'-2%',  top:'102%' }
+];
+
+function moveDieToSeat(dieId, seat, colors){
+  const die = document.getElementById(dieId);
+  if(!die) return;
+  const slot = DIE_SLOTS[seat] || DIE_SLOTS[0];
+  die.style.left = slot.left;
+  die.style.top  = slot.top;
+  die.style.setProperty('--c', (colors || [])[seat] || 'var(--gold)');
+  die.dataset.seat = seat;
 }
 
 /* ---------------- boot ----------------

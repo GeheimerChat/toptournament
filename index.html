@@ -225,9 +225,11 @@
         <div class="pot-banner" id="ludo-pot"></div>
         <div class="lu-seats" id="ludo-seats"></div>
         <div class="chat-stream" id="ludo-chat-stream"></div>
-        <div class="lu-board" id="ludo-board"></div>
-        <div class="lu-controls">
+        <div class="board-frame">
+          <div class="lu-board" id="ludo-board"></div>
           <div class="lu-die" id="ludo-die">🎲</div>
+        </div>
+        <div class="lu-controls">
           <button class="lu-roll-btn" id="ludo-roll-btn" onclick="rollLudoDice()">Roll dice</button>
         </div>
         <div class="lu-status" id="ludo-status">Create or join a table to begin.</div>
@@ -305,14 +307,16 @@
         <div class="pot-banner" id="sl-pot"></div>
         <div class="lu-seats" id="sl-seats"></div>
         <div class="chat-stream" id="snake-chat-stream"></div>
-        <div class="sl-board">
-          <div class="sl-grid" id="sl-grid"></div>
-          <svg class="sl-art" id="sl-art" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
-          <div class="sl-tokens" id="sl-tokens"></div>
+        <div class="board-frame">
+          <div class="sl-board">
+            <div class="sl-grid" id="sl-grid"></div>
+            <svg class="sl-art" id="sl-art" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+            <div class="sl-tokens" id="sl-tokens"></div>
+          </div>
+          <div class="lu-die" id="sl-die">🎲</div>
         </div>
         <div class="sl-tray-row"><span>Not started:</span><div class="sl-tray" id="sl-tray"></div></div>
         <div class="sl-controls">
-          <div class="lu-die" id="sl-die">🎲</div>
           <button class="lu-roll-btn" id="sl-roll-btn" onclick="rollSlDice()">Roll dice</button>
         </div>
         <div class="lu-status" id="sl-status">Create or join a board to begin.</div>

@@ -890,12 +890,24 @@ html[data-theme="light"] .lu-board{ border-color:#2b2f45; }
   border-radius:14px;
   box-shadow:0 8px 20px rgba(0,0,0,.35), inset 0 0 0 2px rgba(20,32,74,.15);
 }
-.lu-die.rolling{ animation:lu-roll .55s ease; }
-@keyframes lu-roll{
-  0%  { transform:rotate(0) scale(1); }
-  30% { transform:rotate(140deg) scale(1.16); }
-  70% { transform:rotate(300deg) scale(.94); }
-  100%{ transform:rotate(360deg) scale(1); }
+.lu-die.rolling{
+  animation:lu-tumble .34s cubic-bezier(.4,.1,.6,.9) infinite;
+  box-shadow:0 14px 28px rgba(0,0,0,.45), inset 0 0 0 2px rgba(20,32,74,.15);
+}
+@keyframes lu-tumble{
+  0%   { transform:translateY(0)     rotate(0deg)   scale(1); }
+  25%  { transform:translateY(-14px) rotate(115deg) scale(1.14); }
+  50%  { transform:translateY(-4px)  rotate(205deg) scale(.96); }
+  75%  { transform:translateY(-11px) rotate(295deg) scale(1.08); }
+  100% { transform:translateY(0)     rotate(360deg) scale(1); }
+}
+
+/* the little bounce as it lands on its number */
+.lu-die.settle{ animation:lu-settle .32s cubic-bezier(.3,1.6,.5,1); }
+@keyframes lu-settle{
+  0%  { transform:scale(1.28) rotate(-8deg); }
+  60% { transform:scale(.94) rotate(3deg); }
+  100%{ transform:scale(1) rotate(0); }
 }
 .lu-roll-btn{
   padding:14px 30px; border:none; border-radius:12px;
@@ -1385,4 +1397,85 @@ html[data-theme="light"] .chat-bubble{
   background:linear-gradient(135deg,var(--gold-2),var(--gold));
   color:#211500;
   box-shadow:var(--shadow-gold);
+}
+
+
+/* ===== STEPPED MOVEMENT ===== */
+
+/* while walking square to square, the transition matches the 200ms step
+   so each hop lands cleanly before the next one starts */
+.lu-token{ transition:left .18s ease-out, top .18s ease-out; }
+.sl-token{ transition:left .18s ease-out, top .18s ease-out; }
+
+/* riding a ladder or a snake is one longer, smoother travel */
+.sl-board.climbing .sl-token,
+.sl-board.sliding  .sl-token{
+  transition:left .68s cubic-bezier(.45,.05,.3,1), top .68s cubic-bezier(.45,.05,.3,1);
+}
+.sl-board.climbing::after,
+.sl-board.sliding::after{
+  content:"";
+  position:absolute; inset:0;
+  pointer-events:none;
+  animation:sl-flash .68s ease;
+}
+.sl-board.climbing::after{ background:radial-gradient(circle, rgba(46,230,197,.22), transparent 65%); }
+.sl-board.sliding::after { background:radial-gradient(circle, rgba(255,93,115,.22), transparent 65%); }
+@keyframes sl-flash{ 0%{opacity:0;} 35%{opacity:1;} 100%{opacity:0;} }
+
+/* the token currently walking sits above the others */
+.lu-token.stepping, .sl-token.stepping{ z-index:9; }
+
+/* ===== TRAVELLING DICE ===== */
+
+/* the frame gives the corner dice something to anchor to */
+.board-frame{
+  position:relative;
+  width:100%;
+  padding:26px;          /* room for the dice to sit outside the board edge */
+  margin:0 auto;
+}
+
+/* the die is absolutely placed and glides between the four corners */
+.board-frame .lu-die{
+  position:absolute;
+  width:52px; height:52px;
+  margin:-26px 0 0 -26px;      /* centre it on the corner point */
+  display:grid; place-items:center;
+  font-size:33px; line-height:1;
+  background:#fff;
+  color:var(--c, #14204a);
+  border-radius:13px;
+  z-index:12;
+  box-shadow:0 8px 18px rgba(0,0,0,.4),
+             inset 0 0 0 3px var(--c, var(--gold));
+  transition:left .42s cubic-bezier(.34,1.15,.5,1),
+             top  .42s cubic-bezier(.34,1.15,.5,1),
+             box-shadow .25s ease;
+  cursor:default;
+}
+@media (max-width:480px){
+  .board-frame{ padding:20px; }
+  .board-frame .lu-die{
+    width:42px; height:42px; font-size:27px; margin:-21px 0 0 -21px;
+  }
+}
+
+/* when it's yours, the die glows and invites a tap */
+.board-frame .lu-die.my-turn{
+  cursor:pointer;
+  animation:die-invite 1.5s ease-in-out infinite;
+}
+@keyframes die-invite{
+  0%,100%{ box-shadow:0 8px 18px rgba(0,0,0,.4), inset 0 0 0 3px var(--c), 0 0 0 0 color-mix(in srgb, var(--c) 60%, transparent); }
+  50%    { box-shadow:0 10px 22px rgba(0,0,0,.45), inset 0 0 0 3px var(--c), 0 0 0 12px transparent; transform:scale(1.07); }
+}
+.board-frame .lu-die.my-turn:hover{ transform:scale(1.12); }
+
+/* placings on the seat chips */
+.lu-seat.placed{ opacity:.75; }
+.lu-seat.placed .lu-seat-home{ font-size:15px; }
+.lu-podium{
+  display:inline-flex; gap:14px; flex-wrap:wrap; justify-content:center;
+  font-size:13px; font-weight:700;
 }

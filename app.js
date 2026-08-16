@@ -672,9 +672,9 @@ function renderLudo(){
 
   moveDieToSeat('ludo-die', ludoRoom.current_turn, LUDO_COLORS);
 
-  // --- tokens ---
-  board.querySelectorAll('.lu-token').forEach(t => t.remove());
-  const occupancy = new Map();   // stack offset when several tokens share a square
+  // --- tokens --- elements persist so they glide square to square
+  const occupancy = new Map();
+  const live = new Set();
 
   for(let seat = 0; seat < 4; seat++){
     if(!ludoRoom.seats[seat]) continue;
@@ -685,29 +685,38 @@ function renderLudo(){
       const stack = occupancy.get(key) || 0;
       occupancy.set(key, stack + 1);
 
-      const tok = document.createElement('button');
-      tok.className = 'lu-token';
-      tok.style.setProperty('--c', LUDO_COLORS[seat]);
+      const id = `lu-tok-${seat}-${i}`;
+      live.add(id);
+      let tok = document.getElementById(id);
+      if(!tok){
+        tok = document.createElement('button');
+        tok.id = id;
+        tok.className = 'lu-token';
+        tok.style.setProperty('--c', LUDO_COLORS[seat]);
+        board.appendChild(tok);
+      }
+
       tok.style.left = ((c + 0.5) / 15 * 100) + '%';
       tok.style.top  = ((r + 0.5) / 15 * 100) + '%';
-      if(stack) tok.style.transform = `translate(-50%,-50%) translate(${stack*5}px, ${stack*-4}px)`;
-      if(pos === 56) tok.classList.add('done');
+      tok.style.transform = stack
+        ? `translate(-50%,-50%) translate(${stack*5}px, ${stack*-4}px)`
+        : 'translate(-50%,-50%)';
+      tok.classList.toggle('done', pos === 56);
+      tok.classList.toggle('stepping',
+        !!(ludoOverride && ludoOverride.seat === seat && ludoOverride.idx === i));
 
-      const canMove = isMyTurn && ludoRoom.dice_rolled &&
+      const canMove = isMyTurn && ludoRoom.dice_rolled && !ludoRoom.game_over &&
                       seat === mySeat && (ludoRoom.movable || []).includes(i);
-      if(canMove){
-        tok.classList.add('movable');
-        tok.onclick = () => ludoMove(i);
-      } else {
-        tok.disabled = true;
-      }
-      board.appendChild(tok);
+      tok.classList.toggle('movable', canMove);
+      tok.disabled = !canMove;
+      tok.onclick = canMove ? (() => ludoMove(i)) : null;
     });
   }
+  board.querySelectorAll('.lu-token').forEach(el => { if(!live.has(el.id)) el.remove(); });
 
   // --- dice and status ---
   const dieEl = document.getElementById('ludo-die');
-  const rollBtn = document.getElementById('ludo-roll-btn');
+  const rollBtn = document.getElementById('ludo-roll-btn') || {};
   const status = document.getElementById('ludo-status');
 
   if(!dieEl.classList.contains('rolling')){
@@ -746,8 +755,9 @@ function renderLudo(){
     rollBtn.textContent = 'Roll dice';
   }
 
-  dieEl.classList.toggle('my-turn', isMyTurn && !ludoRoom.dice_rolled && !ludoRoom.game_over);
-  dieEl.onclick = (isMyTurn && !ludoRoom.dice_rolled && !ludoRoom.game_over) ? rollLudoDice : null;
+  const canRollLudo = isMyTurn && !ludoRoom.dice_rolled && !ludoRoom.game_over && myRank < 0;
+  dieEl.classList.toggle('my-turn', canRollLudo);
+  dieEl.onclick = canRollLudo ? rollLudoDice : null;
 
   if(ludoRoom.last_event){
     document.getElementById('ludo-event').textContent = ludoRoom.last_event;
@@ -1507,12 +1517,12 @@ function renderSl(){
     </div>`;
   }).join('');
 
-  // tokens
+  // tokens — elements persist between renders so they glide instead of jumping
   const layer = document.getElementById('sl-tokens');
-  layer.innerHTML = '';
   const tray = document.getElementById('sl-tray');
   tray.innerHTML = '';
   const stack = new Map();
+  const live = new Set();
 
   slRoom.positions.forEach((pos, seat) => {
     if(seat >= slRoom.player_count || !slRoom.seats[seat]) return;
@@ -1523,18 +1533,35 @@ function renderSl(){
         `<span class="sl-tray-token" style="--c:${SL_COLORS[seat]}" title="${SL_NAMES[seat]} — not started"></span>`);
       return;
     }
+
+    const id = 'sl-tok-' + seat;
+    live.add(id);
+    let tok = document.getElementById(id);
+    if(!tok){
+      tok = document.createElement('span');
+      tok.id = id;
+      tok.className = 'sl-token';
+      tok.style.setProperty('--c', SL_COLORS[seat]);
+      layer.appendChild(tok);
+    }
+
     const n = stack.get(pos) || 0;
     stack.set(pos, n + 1);
     const { left, top } = slPercent(pos);
-    layer.insertAdjacentHTML('beforeend',
-      `<span class="sl-token ${slRoom.current_turn === seat ? 'is-turn' : ''}"
-             style="--c:${SL_COLORS[seat]}; left:${left}; top:${top};
-                    margin-left:${(n % 2) * 7 - 3}px; margin-top:${Math.floor(n / 2) * 7 - 3}px"></span>`);
+    tok.style.left = left;
+    tok.style.top = top;
+    tok.style.marginLeft = ((n % 2) * 7 - 3) + 'px';
+    tok.style.marginTop = (Math.floor(n / 2) * 7 - 3) + 'px';
+    tok.classList.toggle('is-turn', slRoom.current_turn === seat);
+    tok.classList.toggle('stepping', !!(slOverride && slOverride.seat === seat));
   });
+
+  // clear away tokens for seats that are no longer on the board
+  Array.from(layer.children).forEach(el => { if(!live.has(el.id)) el.remove(); });
 
   // dice + status
   const die = document.getElementById('sl-die');
-  const btn = document.getElementById('sl-roll-btn');
+  const btn = document.getElementById('sl-roll-btn') || {};
   const status = document.getElementById('sl-status');
 
   moveDieToSeat('sl-die', slRoom.current_turn, SL_COLORS);
@@ -2261,9 +2288,21 @@ async function animateLudoStep(step){
 }
 
 /* Every Ludo state change goes through here so the walk always plays. */
-async function applyLudoState(room){
+let ludoLastApplied = null;
+let ludoQueue = Promise.resolve();
+
+function applyLudoState(room){
+  ludoQueue = ludoQueue.then(() => applyLudoStateInner(room)).catch(e => console.warn('ludo:', e));
+  return ludoQueue;
+}
+
+async function applyLudoStateInner(room){
+  const stamp = `${room.updated_at}|${room.last_roll}|${JSON.stringify(room.tokens)}`;
+  if(stamp === ludoLastApplied){ ludoRoom = room; renderLudo(); return; }
+  ludoLastApplied = stamp;
+
   const prev = ludoPrevTokens;
-  const rollChanged = ludoRoom && room.last_roll !== ludoRoom.last_roll;
+  const rollChanged = !ludoRoom || room.last_roll !== ludoRoom.last_roll || room.updated_at !== ludoRoom.updated_at;
   ludoRoom = room;
 
   if(rollChanged && room.last_roll){
@@ -2324,10 +2363,23 @@ async function animateSlMove(seat, from, roll, finalPos){
   renderSl();
 }
 
-async function applySlState(room){
+let slLastApplied = null;
+let slQueue = Promise.resolve();
+
+/* Every state change is applied once, in order, and never overlaps
+   another animation. */
+function applySlState(room){
+  slQueue = slQueue.then(() => applySlStateInner(room)).catch(e => console.warn('sl:', e));
+  return slQueue;
+}
+
+async function applySlStateInner(room){
+  const stamp = `${room.updated_at}|${room.last_roll}|${(room.positions||[]).join(',')}`;
+  if(stamp === slLastApplied){ slRoom = room; renderSl(); return; }
+  slLastApplied = stamp;
+
   const prev = slPrevPositions;
-  const rollChanged = slRoom && room.last_roll !== slRoom.last_roll;
-  const prevRoom = slRoom;
+  const rollChanged = !slRoom || room.last_roll !== slRoom.last_roll || room.updated_at !== slRoom.updated_at;
   slRoom = room;
 
   if(rollChanged && room.last_roll){

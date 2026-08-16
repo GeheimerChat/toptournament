@@ -17,6 +17,7 @@ function loadUserIntoApp(){
   document.getElementById('profile-avatar').textContent = (p.name||'P').trim().charAt(0).toUpperCase();
   updateKycUI(p);
   setTheme(p.theme || 'light', false);
+  renderStakeNotice();
 }
 
 function updateKycUI(p){
@@ -44,7 +45,15 @@ async function submitKyc(){
   const location = document.getElementById('kyc-location').value.trim();
   const doc = document.getElementById('kyc-doc').value.trim();
   const err = document.getElementById('kyc-error');
-  if(!surname || !lastname || !age || !location || !doc){ err.style.display='block'; return; }
+  if(!surname || !lastname || !age || !location || !doc){
+    err.textContent = 'Please fill in every field.';
+    err.style.display='block'; return;
+  }
+  const ageNum = Number(age);
+  if(!Number.isInteger(ageNum) || ageNum < 1 || ageNum > 120){
+    err.textContent = 'Enter a valid age.';
+    err.style.display='block'; return;
+  }
   err.style.display='none';
 
   const uid = currentProfile.id;
@@ -59,7 +68,11 @@ async function submitKyc(){
 
   currentProfile = updated;
   updateKycUI(currentProfile);
-  addHistoryEvent('✅','KYC verification approved', null);
+  renderStakeNotice();
+  if(Number(age) < 18){
+    alert('Your details are saved.\n\nBecause you are under 18, staked games stay locked — free tables are still open to you.');
+  }
+  addHistoryEvent('✅','KYC details submitted', null);
 }
 
 
@@ -86,6 +99,8 @@ function goto(pageId){
       (['page-settings','page-deposit','page-withdraw','page-support','page-leaderboard'].includes(pageId) && b.dataset.page==='page-profile'));
   });
   if(pageId==='page-withdraw'){
+    const bEl = document.getElementById('withdraw-balance');
+    if(bEl) bEl.textContent = 'Rs ' + Number((currentProfile||{}).balance || 0).toLocaleString();
     const verified = currentProfile && currentProfile.kyc_verified;
     document.getElementById('withdraw-locked').classList.toggle('hidden', !!verified);
     document.getElementById('withdraw-open').classList.toggle('hidden', !verified);
@@ -272,21 +287,41 @@ function randomCode(len=5){
   return out;
 }
 async function confirmWithdraw(){
-  const amt = document.getElementById('withdraw-amount').value;
+  const raw = document.getElementById('withdraw-amount').value;
   const err = document.getElementById('withdraw-error');
-  if(!amt || Number(amt)<=0){ err.style.display='block'; return; }
-  err.style.display='none';
+  const amt = Number(raw);
+  err.style.color = 'var(--red)';
+
+  if(!raw || !isFinite(amt) || amt <= 0){
+    err.textContent = 'Enter an amount greater than zero.';
+    err.style.display = 'block';
+    return;
+  }
+
+  // quick local check so the common mistake is caught instantly...
+  const bal = Number(currentProfile.balance || 0);
+  if(amt > bal){
+    err.textContent = `Insufficient amount. Your balance is Rs ${bal} — you can't withdraw Rs ${amt}.`;
+    err.style.display = 'block';
+    return;
+  }
+
+  err.style.display = 'none';
   const code = randomCode(5);
 
-  const { error } = await sb.from('withdrawals').insert({
-    user_id: currentProfile.id, amount: Number(amt), code
-  });
-  if(error){ err.textContent = error.message; err.style.display='block'; return; }
+  // ...and the database checks again (including pending requests and KYC),
+  // because a browser-side check can always be bypassed.
+  const { error } = await sb.rpc('request_withdrawal', { p_amount: amt, p_code: code });
+  if(error){
+    err.textContent = error.message.replace(/^.*?(Insufficient|Complete|Enter)/, '$1');
+    err.style.display = 'block';
+    return;
+  }
 
   document.getElementById('withdraw-code').textContent = code;
   document.getElementById('withdraw-code-box').classList.remove('hidden');
   document.getElementById('withdraw-confirm-btn').disabled = true;
-  addHistoryEvent('➖','Withdrawal requested — code '+code, -Number(amt));
+  renderHistory();
 }
 
 
@@ -612,6 +647,8 @@ function renderLudo(){
   const isMyTurn = mySeat >= 0 && ludoRoom.current_turn === mySeat && ludoRoom.winner_seat === null;
 
   // --- seats ---
+  renderPot('ludo-pot', ludoRoom.stake || 0, ludoRoom.seats.filter(Boolean).length);
+
   const seatWrap = document.getElementById('ludo-seats');
   seatWrap.innerHTML = ludoRoom.seats.map((s, i) => {
     if(i >= ludoRoom.player_count) return '';
@@ -702,14 +739,22 @@ async function openLudo(){
   const seats = [null, null, null, null];
   seats[0] = { uid: currentProfile.id, name: currentProfile.name };
 
+  const stake = readStake('ludo-stake');
+
   const { data, error } = await sb.from('ludo_rooms').insert({
-    code, seats, player_count: count,
+    code, seats, player_count: count, stake,
     tokens: [[-1,-1,-1,-1],[-1,-1,-1,-1],[-1,-1,-1,-1],[-1,-1,-1,-1]],
     current_turn: 0, dice_rolled: false, movable: [], consecutive_sixes: 0,
-    last_event: 'Room created — share the code to fill the seats.'
+    last_event: stake ? `Table created at Rs ${stake} per player.` : 'Room created — share the code to fill the seats.'
   }).select().single();
 
   if(error){ alert('Could not create room: ' + error.message); return; }
+
+  // take the creator's stake; if their balance is short, drop the room again
+  if(!await collectStake('ludo', data.id, data.code, stake)){
+    await sb.from('ludo_rooms').delete().eq('id', data.id);
+    return;
+  }
   ludoRoom = data;
   subscribeLudo(data.id);
   document.getElementById('ludo-room-code').textContent = data.code;
@@ -734,6 +779,9 @@ async function joinRoomByCode(){
     for(let i = 0; i < room.player_count; i++){ if(!seats[i]){ open = i; break; } }
     if(open === -1){ alert('That table is full.'); return; }
     seats[open] = { uid: currentProfile.id, name: currentProfile.name };
+
+    // everyone matches the creator's stake before taking a seat
+    if(!await collectStake('ludo', room.id, room.code, room.stake || 0)) return;
 
     const { data: updated, error: upErr } = await sb.from('ludo_rooms')
       .update({ seats, last_event: `${currentProfile.name} joined as ${LUDO_NAMES[open]}.`, updated_at: new Date().toISOString() })
@@ -848,10 +896,14 @@ async function ludoMove(tokenIndex){
   if(allHome){
     patch.winner_seat = mySeat;
     patch.last_event = `🏆 ${LUDO_NAMES[mySeat]} brought all four tokens home!`;
-    addHistoryEvent('🏆', 'Won a Ludo game (room ' + ludoRoom.code + ')', null);
   }
 
   await ludoUpdate(patch);
+
+  if(allHome){
+    const result = await settleGame('ludo', ludoRoom.id, currentProfile.id, mySeat, LUDO_NAMES[mySeat]);
+    if(result && result.payout) alert(`You won! Rs ${result.payout} has been credited to your wallet.`);
+  }
   ludoBusy = false;
 }
 
@@ -1016,6 +1068,9 @@ function renderTTT(){
     status.textContent = online ? "Opponent's turn…" : 'Computer is thinking…';
   }
 
+  renderPot('ttt-pot', online && tttRoom ? (tttRoom.stake || 0) : 0,
+            online && tttRoom ? tttRoom.seats.filter(Boolean).length : 0);
+
   // scoreboard
   const sb = document.getElementById('ttt-scores');
   if(online && tttRoom){
@@ -1113,15 +1168,23 @@ function tttPlayAgain(){
 
 async function tttCreateRoom(){
   const code = 'TT-' + Math.floor(1000 + Math.random() * 9000);
+  const stake = readStake('ttt-stake');
+
   const { data, error } = await sb.from('ttt_rooms').insert({
     code,
     seats: [{ uid: currentProfile.id, name: currentProfile.name }, null],
     board: Array(9).fill(''),
     current_turn: 0,
     scores: [0,0],
+    stake,
     last_event: 'Room created — share the code.'
   }).select().single();
   if(error){ alert('Could not create room: ' + error.message); return; }
+
+  if(!await collectStake('ttt', data.id, data.code, stake)){
+    await sb.from('ttt_rooms').delete().eq('id', data.id);
+    return;
+  }
 
   tttMode = 'online';
   tttRoom = data;
@@ -1141,6 +1204,7 @@ async function tttJoinRoom(){
   const seatIdx = room.seats.findIndex(s => s && s.uid === currentProfile.id);
   if(seatIdx === -1){
     if(room.seats[1]){ alert('That room is already full.'); return; }
+    if(!await collectStake('ttt', room.id, room.code, room.stake || 0)) return;
     const seats = [room.seats[0], { uid: currentProfile.id, name: currentProfile.name }];
     const { data: updated, error: upErr } = await sb.from('ttt_rooms')
       .update({ seats, last_event: `${currentProfile.name} joined.`, updated_at: new Date().toISOString() })
@@ -1193,7 +1257,8 @@ async function tttPlayOnline(i){
   renderTTT();
 
   if(winner && winner !== 'draw' && ((winner === 'X' && seat === 0) || (winner === 'O' && seat === 1))){
-    addHistoryEvent('❌⭕', 'Won a Tic-Tac-Toe round (room ' + tttRoom.code + ')', null);
+    const res = await settleGame('ttt', tttRoom.id, currentProfile.id, seat, winner);
+    if(res && res.payout) alert(`You won! Rs ${res.payout} has been credited to your wallet.`);
   }
 }
 
@@ -1372,6 +1437,8 @@ function renderSl(){
   const gameOver = finished.length >= Math.max(1, slRoom.player_count - 1);
   const isMyTurn = mySeat >= 0 && slRoom.current_turn === mySeat && !gameOver && slRoom.positions[mySeat] !== 100;
 
+  renderPot('sl-pot', slRoom.stake || 0, slRoom.seats.filter(Boolean).length);
+
   // seats
   document.getElementById('sl-seats').innerHTML = slRoom.seats.map((s, i) => {
     if(i >= slRoom.player_count) return '';
@@ -1448,13 +1515,20 @@ async function openSnake(){
   const seats = [null, null, null, null];
   seats[0] = { uid: currentProfile.id, name: currentProfile.name };
 
+  const stake = readStake('sl-stake');
+
   const { data, error } = await sb.from('snake_rooms').insert({
-    code, seats, player_count: count,
+    code, seats, player_count: count, stake,
     positions: [0,0,0,0], current_turn: 0, finished_order: [],
-    last_event: 'Board created — share the code to fill the seats.'
+    last_event: stake ? `Board created at Rs ${stake} per player.` : 'Board created — share the code to fill the seats.'
   }).select().single();
 
   if(error){ alert('Could not create board: ' + error.message); return; }
+
+  if(!await collectStake('snake', data.id, data.code, stake)){
+    await sb.from('snake_rooms').delete().eq('id', data.id);
+    return;
+  }
   slRoom = data;
   subscribeSl(data.id);
   document.getElementById('sl-room-code').textContent = data.code;
@@ -1476,6 +1550,8 @@ async function joinSlRoomByCode(){
     for(let i = 0; i < room.player_count; i++){ if(!seats[i]){ open = i; break; } }
     if(open === -1){ alert('That board is full.'); return; }
     seats[open] = { uid: currentProfile.id, name: currentProfile.name };
+    if(!await collectStake('snake', room.id, room.code, room.stake || 0)) return;
+
     const { data: updated, error: upErr } = await sb.from('snake_rooms')
       .update({ seats, last_event: `${currentProfile.name} joined as ${SL_NAMES[open]}.`, updated_at: new Date().toISOString() })
       .eq('id', room.id).select().single();
@@ -1532,10 +1608,8 @@ async function rollSlDice(){
     case 'win':       event = `🏆 ${SL_NAMES[mySeat]} reached 100!`; break;
     default:          event = `${SL_NAMES[mySeat]} rolled ${roll} → square ${result.pos}.`;
   }
-  if(result.event === 'win' && !finished.includes(mySeat)){
-    finished.push(mySeat);
-    if(finished.length === 1) addHistoryEvent('🐍', 'Won a Snake & Ladder game (board ' + slRoom.code + ')', null);
-  }
+  const justWonFirst = result.event === 'win' && !finished.includes(mySeat) && finished.length === 0;
+  if(result.event === 'win' && !finished.includes(mySeat)) finished.push(mySeat);
 
   // a six earns another turn, as long as you haven't just finished
   const extra = roll === 6 && result.event !== 'win';
@@ -1553,6 +1627,11 @@ async function rollSlDice(){
     if(!error){ slRoom = data; renderSl(); }
     slBusy = false;
     document.getElementById('sl-die').classList.remove('rolling');
+
+    if(justWonFirst){
+      const res = await settleGame('snake', slRoom.id, currentProfile.id, mySeat, SL_NAMES[mySeat]);
+      if(res && res.payout) alert(`You won! Rs ${res.payout} has been credited to your wallet.`);
+    }
   }, 520);
 }
 
@@ -1755,6 +1834,143 @@ async function changePlayerPassword(){
   clearSessionState();
   await sb.auth.signOut({ scope: 'global' });   // revokes all refresh tokens
   setTimeout(() => location.reload(), 1200);
+}
+
+/* =====================================================================
+   STAKES & PAYOUTS
+   Every player at a table puts in the same amount, set by whoever
+   created it. The stake leaves their wallet the moment they join and
+   sits in escrow. The winner receives the whole pot minus the app's
+   commission. Nothing here writes a balance directly — every change
+   goes through a database function that re-checks the numbers.
+   ===================================================================== */
+
+const COMMISSION_RATE = 0.12;   // display only; the server value is authoritative
+
+function prizeFromPot(pot){
+  return Math.round((pot - pot * COMMISSION_RATE) * 100) / 100;
+}
+
+/* Read the stake the player typed on a game card. */
+function readStake(inputId){
+  const el = document.getElementById(inputId);
+  const v = Number(el?.value || 0);
+  return (isFinite(v) && v > 0) ? v : 0;
+}
+
+/* Take the stake before a room is created or joined.
+   Returns true if the player is clear to sit down. */
+async function collectStake(game, roomId, roomCode, amount){
+  if(!amount) return true;                       // free table
+  const { data, error } = await sb.rpc('place_wager', {
+    p_game: game, p_room_id: roomId, p_room_code: roomCode, p_amount: amount
+  });
+
+  if(error){
+    const msg = error.message || '';
+    // the database raises short codes for the eligibility checks so the
+    // wording can live here, next to the buttons that fix each problem
+    if(msg.includes('KYC_REQUIRED')){
+      if(confirm('Staked tables need a verified account.\n\nComplete KYC verification now?')) goto('page-settings');
+    } else if(msg.includes('AGE_UNKNOWN')){
+      if(confirm('We need your age on file before you can join a staked table.\n\nOpen KYC verification?')) goto('page-settings');
+    } else if(msg.includes('UNDERAGE')){
+      alert('Staked games are for players aged 18 and over.\n\nYou can still play any free table — set the stake to 0, or join a friendly room.');
+    } else if(msg.includes('blocked')){
+      alert('This account is blocked and cannot join staked tables. Contact support if you think this is a mistake.');
+    } else if(msg.toLowerCase().includes('insufficient')){
+      alert(msg.replace(/^.*?Insufficient/, 'Insufficient'));
+    } else {
+      alert('Could not place the stake: ' + msg);
+    }
+    return false;
+  }
+
+  if(typeof data === 'number'){
+    currentProfile.balance = data;
+    loadUserIntoApp();
+  }
+  return true;
+}
+
+/* Pay out a finished game. Safe to call more than once — the database
+   marks the room settled and ignores any repeat. */
+async function settleGame(game, roomId, winnerId, winnerSeat, winnerColor){
+  const { data, error } = await sb.rpc('settle_match', {
+    p_game: game, p_room_id: roomId, p_winner_id: winnerId,
+    p_winner_seat: winnerSeat, p_winner_color: winnerColor
+  });
+  if(error){ console.warn('settle:', error.message); return null; }
+  if(data && data.payout && winnerId === currentProfile.id){
+    const { data: p } = await sb.from('profiles').select('*').eq('id', currentProfile.id).maybeSingle();
+    if(p){ currentProfile = p; loadUserIntoApp(); }
+  }
+  return data;
+}
+
+/* The banner shown above a board: stake in, prize out. */
+function renderPot(elId, stake, playersIn){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  if(!stake){
+    el.innerHTML = `<span class="pot-free">Friendly table — no stake</span>`;
+    return;
+  }
+  const pot = stake * playersIn;
+  const prize = prizeFromPot(pot);
+  el.innerHTML = `
+    <div class="pot-line">
+      <span class="pot-leg"><b>${playersIn}</b> × Rs ${stake}</span>
+      <span class="pot-arrow">→</span>
+      <span class="pot-leg">Pot <b>Rs ${pot}</b></span>
+      <span class="pot-arrow">−${Math.round(COMMISSION_RATE*100)}%</span>
+      <span class="pot-win">Winner takes <b>Rs ${prize}</b></span>
+    </div>`;
+}
+
+/* Small helper so each game card can offer a stake box. */
+function stakeFieldHTML(id){
+  return `<div class="stake-row">
+      <label for="${id}">Stake each</label>
+      <div class="stake-input">
+        <span>Rs</span>
+        <input id="${id}" type="number" min="0" step="10" placeholder="0" onclick="event.stopPropagation()">
+      </div>
+    </div>`;
+}
+
+/* ---------------- staking eligibility ---------------- */
+
+/* Why this account can or can't join a staked table. */
+function stakeEligibility(){
+  const p = currentProfile || {};
+  if(p.blocked)                    return { ok:false, kind:'blocked' };
+  if(!p.kyc_verified)              return { ok:false, kind:'kyc' };
+  if(p.kyc_age == null)            return { ok:false, kind:'age-unknown' };
+  if(Number(p.kyc_age) < 18)       return { ok:false, kind:'underage' };
+  return { ok:true };
+}
+
+/* A short banner above the games list so players know where they stand
+   before they type a stake and hit a wall. */
+function renderStakeNotice(){
+  const el = document.getElementById('stake-notice');
+  if(!el || !currentProfile) return;
+  const e = stakeEligibility();
+
+  if(e.ok){
+    el.className = 'stake-notice ok';
+    el.innerHTML = `✅ Verified for staked tables · Balance <b>Rs ${Number(currentProfile.balance||0).toLocaleString()}</b>`;
+    return;
+  }
+  el.className = 'stake-notice warn';
+  if(e.kind === 'blocked'){
+    el.innerHTML = `🚫 This account is blocked from staked tables. <a onclick="goto('page-support')">Contact support</a>`;
+  } else if(e.kind === 'underage'){
+    el.innerHTML = `🔞 Staked games are 18+. You can still play any free table — just leave the stake at 0.`;
+  } else {
+    el.innerHTML = `🔒 Free tables are open to you. To play for money, <a onclick="goto('page-settings')">complete KYC verification</a> (18+).`;
+  }
 }
 
 /* ---------------- boot ----------------

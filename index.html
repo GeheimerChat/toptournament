@@ -117,6 +117,7 @@
     <div class="page" id="page-home">
       <h2>Choose a game</h2>
       <p class="subhead">Play online with people on other phones, in other places — pick a game and invite friends with a room code.</p>
+      <div class="stake-notice" id="stake-notice"></div>
       <div class="game-grid">
         <div class="game-card">
           <div class="game-art art-ludo">
@@ -137,7 +138,7 @@
           <h3>Ludo Online</h3>
           <p>Classic 4-player Ludo. Create a room, share the code, play together in real time.</p>
           <div class="tag-row"><span class="tag live">4 players</span><span class="tag">Room code</span></div>
-          <div class="lu-count-row"><label>Players</label><select id="ludo-player-count" onclick="event.stopPropagation()"><option value="2">2P</option><option value="3">3P</option><option value="4" selected>4P</option></select></div><button class="play-btn primary" onclick="openLudo()">Create table</button>
+          <div class="lu-count-row"><label>Players</label><select id="ludo-player-count" onclick="event.stopPropagation()"><option value="2">2P</option><option value="3">3P</option><option value="4" selected>4P</option></select></div><div class="stake-row"><label>Stake each</label><div class="stake-input"><span>Rs</span><input id="ludo-stake" type="number" min="0" step="10" placeholder="0" onclick="event.stopPropagation()"></div></div><button class="play-btn primary" onclick="openLudo()">Create table</button>
         </div>
         <div class="game-card">
           <div class="game-art art-snake">
@@ -152,7 +153,7 @@
           <h3>Snake & Ladder</h3>
           <p>Roll, climb, and slide your way to square 100 first. 2–4 players, live across devices.</p>
           <div class="tag-row"><span class="tag live">4 players</span><span class="tag">Room code</span></div>
-          <div class="lu-count-row"><label>Players</label><select id="sl-player-count" onclick="event.stopPropagation()"><option value="2">2P</option><option value="3">3P</option><option value="4" selected>4P</option></select></div><button class="play-btn primary" onclick="openSnake()">Create board</button>
+          <div class="lu-count-row"><label>Players</label><select id="sl-player-count" onclick="event.stopPropagation()"><option value="2">2P</option><option value="3">3P</option><option value="4" selected>4P</option></select></div><div class="stake-row"><label>Stake each</label><div class="stake-input"><span>Rs</span><input id="sl-stake" type="number" min="0" step="10" placeholder="0" onclick="event.stopPropagation()"></div></div><button class="play-btn primary" onclick="openSnake()">Create board</button>
         </div>
         <div class="game-card">
           <div class="game-art art-ttt">
@@ -167,7 +168,7 @@
           <h3>Tic-Tac-Toe</h3>
           <p>Play a friend across devices, or take on a computer that never loses on Hard.</p>
           <div class="tag-row"><span class="tag live">2 players</span><span class="tag">vs Computer</span></div>
-          <button class="play-btn primary" onclick="tttStartSolo()">Play now</button>
+          <div class="stake-row"><label>Stake each</label><div class="stake-input"><span>Rs</span><input id="ttt-stake" type="number" min="0" step="10" placeholder="0" onclick="event.stopPropagation()"></div></div><button class="play-btn primary" onclick="tttStartSolo()">Play now</button>
         </div>
         <div class="game-card soon">
           <div class="game-art art-carrom">
@@ -221,6 +222,7 @@
       </div>
 
       <div class="ludo-stage">
+        <div class="pot-banner" id="ludo-pot"></div>
         <div class="lu-seats" id="ludo-seats"></div>
         <div class="lu-board" id="ludo-board"></div>
         <div class="lu-controls">
@@ -267,6 +269,7 @@
           <button class="copy-btn" onclick="tttJoinRoom()">Join</button>
         </div>
 
+        <div class="pot-banner" id="ttt-pot"></div>
         <div class="ttt-scores" id="ttt-scores"></div>
         <div class="ttt-board" id="ttt-board"></div>
         <div class="ttt-status" id="ttt-status">Your turn.</div>
@@ -295,6 +298,7 @@
       </div>
 
       <div class="sl-stage">
+        <div class="pot-banner" id="sl-pot"></div>
         <div class="lu-seats" id="sl-seats"></div>
         <div class="sl-board">
           <div class="sl-grid" id="sl-grid"></div>
@@ -431,11 +435,11 @@
 
       <div class="card">
         <div class="mi-title" style="margin-bottom:2px;">KYC Verification</div>
-        <div class="mi-sub" style="margin-bottom:14px;">Required to unlock withdrawals.</div>
+        <div class="mi-sub" style="margin-bottom:14px;">Required to unlock withdrawals and to join staked tables. You must be 18 or over to play for money.</div>
         <div id="kyc-form-wrap">
           <div class="field"><label>Surname</label><input id="kyc-surname" placeholder="Surname"></div>
           <div class="field"><label>Last name</label><input id="kyc-lastname" placeholder="Last name"></div>
-          <div class="field"><label>Age</label><input id="kyc-age" type="number" placeholder="Age"></div>
+          <div class="field"><label>Age (must be 18+ to stake)</label><input id="kyc-age" type="number" min="1" max="120" placeholder="Your age"></div>
           <div class="field"><label>Location</label><input id="kyc-location" placeholder="City, Country"></div>
           <div class="field"><label>Document number</label><input id="kyc-doc" placeholder="ID / passport number"></div>
           <div class="error-msg" id="kyc-error">Please fill in every field.</div>
@@ -474,7 +478,7 @@
       </div>
 
       <div id="withdraw-open" class="card hidden">
-        <div class="field"><label>Amount</label><input id="withdraw-amount" type="number" placeholder="Enter amount"></div>
+        <div class="balance-strip">Available balance <b id="withdraw-balance">Rs 0</b></div><div class="field"><label>Amount</label><input id="withdraw-amount" type="number" min="1" placeholder="Enter amount"></div>
         <div class="error-msg" id="withdraw-error">Please enter a valid amount.</div>
         <button class="primary-btn" id="withdraw-confirm-btn" onclick="confirmWithdraw()">Confirm withdrawal</button>
 

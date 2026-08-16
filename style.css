@@ -1185,3 +1185,83 @@ html[data-theme="light"] .sl-board{ border-color:#2b2f45; }
 .menu-item-danger .mi-title{ color:var(--red); }
 .menu-item-danger:hover{ border-color:var(--red); }
 .menu-item-danger:hover .chev{ color:var(--red); }
+
+/* ===== STAKES, POT & BALANCE ===== */
+.stake-row{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  margin-bottom:10px;
+}
+.stake-row label{
+  font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--text-dim);
+}
+.stake-input{
+  display:flex; align-items:center; gap:5px;
+  background:var(--panel-2); border:1px solid var(--line); border-radius:9px;
+  padding:6px 10px;
+}
+.stake-input span{ font-size:12px; font-weight:800; color:var(--text-dim); }
+.stake-input input{
+  width:74px; background:none; border:none; outline:none;
+  color:var(--text); font-size:13.5px; font-weight:700; text-align:right;
+}
+.stake-input:focus-within{ border-color:var(--gold); }
+
+.pot-banner{ margin-bottom:14px; min-height:0; }
+.pot-banner:empty{ display:none; }
+.pot-line{
+  display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap;
+  background:linear-gradient(135deg, rgba(242,177,52,.16), rgba(46,230,197,.10));
+  border:1px solid rgba(242,177,52,.35);
+  border-radius:14px; padding:11px 14px;
+  font-size:12.5px; font-weight:600;
+  box-shadow:var(--shadow-sm);
+}
+.pot-line b{ font-family:var(--font-display); font-size:15px; }
+.pot-arrow{ color:var(--text-dim); font-weight:800; font-size:11.5px; }
+.pot-win{ color:var(--gold-2); font-weight:800; }
+.pot-win b{ font-size:17px; }
+.pot-free{
+  display:block; text-align:center; font-size:12.5px; color:var(--text-dim);
+  background:var(--panel); border:1px dashed var(--line);
+  border-radius:12px; padding:9px;
+}
+
+.balance-strip{
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--panel-2); border:1px solid var(--line);
+  border-radius:10px; padding:11px 14px; margin-bottom:14px;
+  font-size:12.5px; font-weight:600; color:var(--text-dim);
+}
+.balance-strip b{
+  font-family:var(--font-display); font-size:17px; color:var(--gold-2);
+}
+
+/* ===== STAKE ELIGIBILITY NOTICE ===== */
+.stake-notice{
+  display:block;
+  border-radius:12px;
+  padding:11px 15px;
+  margin-bottom:16px;
+  font-size:12.5px;
+  font-weight:600;
+  line-height:1.5;
+}
+.stake-notice:empty{ display:none; }
+.stake-notice.ok{
+  background:rgba(46,230,197,.12);
+  border:1px solid rgba(46,230,197,.32);
+  color:var(--teal);
+}
+.stake-notice.ok b{ color:var(--text); font-family:var(--font-display); font-size:14px; }
+.stake-notice.warn{
+  background:rgba(242,177,52,.12);
+  border:1px solid rgba(242,177,52,.35);
+  color:var(--text);
+}
+.stake-notice a{
+  color:var(--gold-2);
+  font-weight:800;
+  text-decoration:underline;
+  cursor:pointer;
+}

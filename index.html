@@ -225,9 +225,13 @@
         <div class="pot-banner" id="ludo-pot"></div>
         <div class="lu-seats" id="ludo-seats"></div>
         <div class="chat-stream" id="ludo-chat-stream"></div>
-        <div class="board-frame">
+        <div class="board-frame" id="ludo-frame">
+          <div class="die-tray t0" data-seat="0"></div>
+          <div class="die-tray t1" data-seat="1"></div>
+          <div class="die-tray t2" data-seat="2"></div>
+          <div class="die-tray t3" data-seat="3"></div>
           <div class="lu-board" id="ludo-board"></div>
-          <div class="lu-die" id="ludo-die">🎲</div>
+          <div class="die3d" id="ludo-die" data-face="1"><span class="pip p1"></span><span class="pip p2"></span><span class="pip p3"></span><span class="pip p4"></span><span class="pip p5"></span><span class="pip p6"></span><span class="pip p7"></span><span class="pip p8"></span><span class="pip p9"></span></div>
         </div>
         <div class="lu-status" id="ludo-status">Create or join a table to begin.</div>
         <div class="lu-event" id="ludo-event"></div>
@@ -304,13 +308,17 @@
         <div class="pot-banner" id="sl-pot"></div>
         <div class="lu-seats" id="sl-seats"></div>
         <div class="chat-stream" id="snake-chat-stream"></div>
-        <div class="board-frame">
+        <div class="board-frame" id="sl-frame">
+          <div class="die-tray t0" data-seat="0"></div>
+          <div class="die-tray t1" data-seat="1"></div>
+          <div class="die-tray t2" data-seat="2"></div>
+          <div class="die-tray t3" data-seat="3"></div>
           <div class="sl-board">
             <div class="sl-grid" id="sl-grid"></div>
             <svg class="sl-art" id="sl-art" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
             <div class="sl-tokens" id="sl-tokens"></div>
           </div>
-          <div class="lu-die" id="sl-die">🎲</div>
+          <div class="die3d" id="sl-die" data-face="1"><span class="pip p1"></span><span class="pip p2"></span><span class="pip p3"></span><span class="pip p4"></span><span class="pip p5"></span><span class="pip p6"></span><span class="pip p7"></span><span class="pip p8"></span><span class="pip p9"></span></div>
         </div>
         <div class="sl-tray-row"><span>Not started:</span><div class="sl-tray" id="sl-tray"></div></div>
         <div class="lu-status" id="sl-status">Create or join a board to begin.</div>

@@ -670,7 +670,8 @@ function renderLudo(){
     </div>`;
   }).join('');
 
-  moveDieToSeat('ludo-die', ludoRoom.current_turn, LUDO_COLORS);
+  const ludoActive = [0,1,2,3].filter(i => i < (ludoRoom.player_count || 4));
+  moveDieToSeat('ludo-die', ludoRoom.current_turn, LUDO_COLORS, ludoActive);
 
   // --- tokens --- elements persist so they glide square to square
   const occupancy = new Map();
@@ -720,7 +721,7 @@ function renderLudo(){
   const status = document.getElementById('ludo-status');
 
   if(!dieEl.classList.contains('rolling')){
-    dieEl.textContent = ludoRoom.last_roll ? LUDO_DIE[ludoRoom.last_roll - 1] : '🎲';
+    setDieFace(dieEl, ludoRoom.last_roll || 1);
   }
   dieEl.style.setProperty('--c', LUDO_COLORS[ludoRoom.current_turn]);
 
@@ -757,6 +758,7 @@ function renderLudo(){
 
   const canRollLudo = isMyTurn && !ludoRoom.dice_rolled && !ludoRoom.game_over && myRank < 0;
   dieEl.classList.toggle('my-turn', canRollLudo);
+  dieEl.classList.toggle('waiting', !canRollLudo);
   dieEl.onclick = canRollLudo ? rollLudoDice : null;
 
   if(ludoRoom.last_event){
@@ -1564,10 +1566,11 @@ function renderSl(){
   const btn = document.getElementById('sl-roll-btn') || {};
   const status = document.getElementById('sl-status');
 
-  moveDieToSeat('sl-die', slRoom.current_turn, SL_COLORS);
+  const slActive = [0,1,2,3].filter(i => i < (slRoom.player_count || 4));
+  moveDieToSeat('sl-die', slRoom.current_turn, SL_COLORS, slActive);
 
   if(!die.classList.contains('rolling')){
-    die.textContent = slRoom.last_roll ? SL_DIE[slRoom.last_roll - 1] : '🎲';
+    setDieFace(die, slRoom.last_roll || 1);
   }
   die.style.setProperty('--c', SL_COLORS[slRoom.current_turn] || '#888');
 
@@ -1594,6 +1597,7 @@ function renderSl(){
 
   const canRollSl = isMyTurn && !gameOver;
   die.classList.toggle('my-turn', canRollSl);
+  die.classList.toggle('waiting', !canRollSl);
   die.onclick = canRollSl ? rollSlDice : null;
 
   document.getElementById('sl-event').textContent = slRoom.last_event || '';
@@ -2234,21 +2238,27 @@ const DIE_MS  = 520;    // how long the die tumbles
 const DIE_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
-/* Tumble a die element, then land on `face` (1-6). */
+/* Show a face on the pip die. */
+function setDieFace(el, n){
+  if(el) el.dataset.face = String(Math.min(6, Math.max(1, n || 1)));
+}
+
+/* Tumble a die, flicking through faces, then land on `face` (1-6). */
 function spinDie(el, face){
   if(!el) return Promise.resolve();
   el.classList.add('rolling');
+  el.classList.remove('my-turn');
   const started = Date.now();
 
   return new Promise(resolve => {
     const flick = setInterval(() => {
-      el.textContent = DIE_FACES[Math.floor(Math.random() * 6)];
+      setDieFace(el, 1 + Math.floor(Math.random() * 6));
       if(Date.now() - started >= DIE_MS){
         clearInterval(flick);
         el.classList.remove('rolling');
-        el.textContent = DIE_FACES[(face || 1) - 1];
+        setDieFace(el, face);
         el.classList.add('settle');
-        setTimeout(() => el.classList.remove('settle'), 320);
+        setTimeout(() => el.classList.remove('settle'), 360);
         resolve();
       }
     }, 55);
@@ -2409,20 +2419,34 @@ async function applySlStateInner(room){
    2 bottom-right, 3 bottom-left.
 ------------------------------------------------------------------- */
 const DIE_SLOTS = [
-  { left:'-2%',  top:'-2%'  },
-  { left:'102%', top:'-2%'  },
-  { left:'102%', top:'102%' },
-  { left:'-2%',  top:'102%' }
+  { left:'0%',   top:'0%'   },
+  { left:'100%', top:'0%'   },
+  { left:'100%', top:'100%' },
+  { left:'0%',   top:'100%' }
 ];
 
-function moveDieToSeat(dieId, seat, colors){
+function moveDieToSeat(dieId, seat, colors, activeSeats){
   const die = document.getElementById(dieId);
   if(!die) return;
+  const frame = die.closest('.board-frame');
   const slot = DIE_SLOTS[seat] || DIE_SLOTS[0];
+
   die.style.left = slot.left;
   die.style.top  = slot.top;
+  die.style.marginLeft = '';
+  die.style.marginTop  = '';
   die.style.setProperty('--c', (colors || [])[seat] || 'var(--gold)');
-  die.dataset.seat = seat;
+
+  // light up the tray that currently holds the die, hide unused colours
+  if(frame){
+    frame.querySelectorAll('.die-tray').forEach(t => {
+      const s = Number(t.dataset.seat);
+      const inPlay = !activeSeats || activeSeats.includes(s);
+      t.classList.toggle('hidden-seat', !inPlay);
+      t.classList.toggle('holding', s === seat);
+      t.classList.toggle('inactive', s !== seat);
+    });
+  }
 }
 
 /* ---------------- boot ----------------
